@@ -72,7 +72,42 @@ not disagree much, stop — you have your answer and which split to select on.
 WHICH=steps ./scripts/sweep_checkpoints.sh $RUN "$ALL10" 8
 ```
 
-`WHICH=all` does both. `SWEEP_CKPTS="a.pt b.pt"` scores exactly those files.
+`WHICH=all` does both.
+
+**Scoring specific checkpoints by hand:**
+
+```bash
+# a few steps
+SWEEP_CKPTS="$RUN/hypermod_inlet_step500.pt $RUN/hypermod_inlet_step1000.pt" \
+  ./scripts/sweep_checkpoints.sh $RUN "$ALL10" 8
+
+# a glob
+SWEEP_CKPTS="$(echo $RUN/hypermod_inlet_step{500,1000,2000,4000}.pt)" \
+  ./scripts/sweep_checkpoints.sh $RUN "gsm8k mbpp humaneval" 8
+
+# one file
+SWEEP_CKPTS="$RUN/hypermod_inlet_best_val_unseen.pt" \
+  ./scripts/sweep_checkpoints.sh $RUN "$ALL10" 8
+```
+
+Results accumulate in one directory, so after several partial sweeps ask for the
+combined table — everything scored so far is still in it:
+
+```bash
+python -m inlet.sweep_report $INLET_OUTPUT_ROOT/eval_results_inlet --plot curve.png
+```
+
+### Job counts
+
+One job per (checkpoint, task), because each one loads its own dataset and builds
+its own vLLM engine. That is also the finest split that fills the node.
+
+| | jobs | 8 GPUs |
+|---|---|---|
+| `WHICH=best`, 3 generative tasks | 4 × 3 = 12 | **~15 min** |
+| `WHICH=best`, all ten | 4 × 10 = 40 | ~1 h |
+| `WHICH=steps`, all ten | 9 × 10 = 90 | ~2.5 h |
+| the reported number, full protocol | 1 × 10 = 10 | ~50 min |
 
 Cheaper first pass either way — the three generative tasks carry the whole
 signal, and this is ~15 min for the four:

@@ -51,9 +51,22 @@ collect_ckpts() {
   esac
 }
 
-# SWEEP_CKPTS overrides everything, for scoring a specific file or two.
+# SWEEP_CKPTS overrides everything, for scoring specific files.
+#
+# Split on whitespace INCLUDING newlines. `read -r -a` reads one line and stops,
+# so SWEEP_CKPTS="$(ls .../step{500,2000,8000}.pt)" silently swept the first file
+# and dropped the rest -- no error, just two thirds of the answer missing.
 if [[ -n "${SWEEP_CKPTS:-}" ]]; then
-  read -r -a CKPTS <<< "$SWEEP_CKPTS"
+  # shellcheck disable=SC2206
+  CKPTS=($SWEEP_CKPTS)
+  # A path that does not exist must stop the sweep now, not after an engine build.
+  missing=()
+  for ck in "${CKPTS[@]}"; do [[ -f "$ck" ]] || missing+=("$ck"); done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    printf 'SWEEP_CKPTS lists %d file(s) that do not exist:\n' "${#missing[@]}" >&2
+    printf '  %s\n' "${missing[@]}" >&2
+    exit 1
+  fi
 else
   mapfile -t CKPTS < <(collect_ckpts "$WHICH")
 fi
