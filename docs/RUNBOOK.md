@@ -51,9 +51,34 @@ If it hangs: `pgrep -f train_inlet`, then `kill -USR1 <pid>` for **every** rank.
 
 ## 2. Get the curve
 
+**Start with the four best-per-split checkpoints.** If one of them is good
+enough, the step ladder never has to be paid for.
+
 ```bash
 ALL10="arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp humaneval"
-./scripts/sweep_checkpoints.sh /root/outputs/hyper_lora/cross8 "$ALL10" 8
+RUN=/root/outputs/hyper_lora/cross8
+
+# 4 checkpoints x 10 tasks = 40 jobs, ~1 h on 8 GPUs
+WHICH=best ./scripts/sweep_checkpoints.sh $RUN "$ALL10" 8
+```
+
+Read the table. If the best of the four beats the frozen model and the four do
+not disagree much, stop — you have your answer and which split to select on.
+
+**Only if they are all bad, or disagree, go back for the curve:**
+
+```bash
+# 9 checkpoints x 10 tasks = 90 jobs, ~2.5 h on 8 GPUs
+WHICH=steps ./scripts/sweep_checkpoints.sh $RUN "$ALL10" 8
+```
+
+`WHICH=all` does both. `SWEEP_CKPTS="a.pt b.pt"` scores exactly those files.
+
+Cheaper first pass either way — the three generative tasks carry the whole
+signal, and this is ~15 min for the four:
+
+```bash
+WHICH=best ./scripts/sweep_checkpoints.sh $RUN "gsm8k mbpp humaneval" 8
 ```
 
 One job per (checkpoint, task), spread across the GPUs. Each job builds its own

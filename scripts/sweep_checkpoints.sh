@@ -33,12 +33,36 @@ NGPU="${3:-1}"
 SWEEP_EVAL_ARGS="${SWEEP_EVAL_ARGS:---max-eval-descs 1 --skip-random-descs}"
 [[ "${SWEEP_FULL:-0}" == "1" ]] && SWEEP_EVAL_ARGS=""
 
-mapfile -t CKPTS < <(ls -1 "$RUN_DIR"/hypermod_inlet_step*.pt 2>/dev/null \
-                     | sed 's/.*step\([0-9]*\)\.pt/\1 &/' | sort -n | cut -d' ' -f2)
+# WHICH= selects what to sweep. Start with `best`: four files, one per validation
+# split, and if one of them is good enough the step ladder never has to be paid
+# for. Fall back to `steps` when you need the curve.
+#   best    the four --save_best_per_split checkpoints        (4 jobs per task)
+#   steps   the --checkpoint_steps ladder                     (9 jobs per task)
+#   all     both
+WHICH="${WHICH:-steps}"
+
+collect_ckpts() {
+  case "$1" in
+    best)  ls -1 "$RUN_DIR"/hypermod_inlet_best_*.pt 2>/dev/null ;;
+    steps) ls -1 "$RUN_DIR"/hypermod_inlet_step*.pt 2>/dev/null \
+             | sed 's/.*step\([0-9]*\)\.pt/\1 &/' | sort -n | cut -d' ' -f2 ;;
+    all)   collect_ckpts best; collect_ckpts steps ;;
+    *)     echo "WHICH must be best|steps|all, got $1" >&2; exit 1 ;;
+  esac
+}
+
+# SWEEP_CKPTS overrides everything, for scoring a specific file or two.
+if [[ -n "${SWEEP_CKPTS:-}" ]]; then
+  read -r -a CKPTS <<< "$SWEEP_CKPTS"
+else
+  mapfile -t CKPTS < <(collect_ckpts "$WHICH")
+fi
+
 if [[ ${#CKPTS[@]} -eq 0 ]]; then
-  echo "no hypermod_inlet_step*.pt in $RUN_DIR" >&2
-  echo "Those exist only if the run passed --checkpoint_steps. Present:" >&2
+  echo "no checkpoints matched WHICH=$WHICH in $RUN_DIR" >&2
+  echo "Present:" >&2
   ls -1 "$RUN_DIR"/*.pt 2>/dev/null >&2 || echo "  (no .pt files at all)" >&2
+  echo "The step ladder exists only if the run passed --checkpoint_steps." >&2
   exit 1
 fi
 

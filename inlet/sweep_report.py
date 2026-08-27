@@ -46,7 +46,7 @@ def _score(metrics: dict):
 
 def collect(results_dir: pathlib.Path):
     """-> {task: {step: mean score over eval_descs}}, and any files skipped."""
-    out, skipped = {}, []
+    out, skipped, labels = {}, [], {}
     for f in sorted(results_dir.glob("*.json")):
         try:
             d = json.loads(f.read_text())
@@ -58,11 +58,23 @@ def collect(results_dir: pathlib.Path):
         if not task or not ck:
             skipped.append((f.name, "no task/checkpoint field"))
             continue
-        m = re.search(r"step(\d+)", str(ck))
-        if not m:
-            skipped.append((f.name, f"no step in checkpoint name: {ck}"))
+        # The step comes from the checkpoint's own config, which save_checkpoint
+        # writes as `curstep`. Reading it from the filename works only for the
+        # --checkpoint_steps ladder; the best-per-split files carry no step in
+        # their name, and those are the ones worth evaluating first.
+        step = None
+        tc = d.get("train_config") or {}
+        if isinstance(tc, dict) and isinstance(tc.get("curstep"), int):
+            step = tc["curstep"]
+        if step is None:
+            m = re.search(r"step(\d+)", str(ck))
+            if m:
+                step = int(m.group(1))
+        if step is None:
+            skipped.append((f.name, f"no step in config or filename: {ck}"))
             continue
-        step = int(m.group(1))
+        label = pathlib.Path(str(ck)).stem
+        labels.setdefault(step, set()).add(label)
         # average the real-description variants only; random_descs is a control
         per_tag = d.get("results", {}).get(task, {})
         reals = [_score(v) for k, v in per_tag.items() if k.startswith("eval_descs")]
@@ -71,7 +83,7 @@ def collect(results_dir: pathlib.Path):
             skipped.append((f.name, "no eval_descs entries"))
             continue
         out.setdefault(task, {})[step] = sum(reals) / len(reals)
-    return out, skipped
+    return out, skipped, labels
 
 
 def _plot(curves, full_steps, path):
@@ -132,7 +144,7 @@ def main(argv=None):
         print(f"not a directory: {d}", file=sys.stderr)
         return 1
 
-    curves, skipped = collect(d)
+    curves, skipped, labels = collect(d)
     if not curves:
         print(f"no usable results in {d}")
         for n, why in skipped[:10]:
@@ -158,6 +170,11 @@ def main(argv=None):
                 row += f"{v:>{w-2}.2f}" + (" *" if peaks[t] == s else "  ")
         print(row)
     print("\n* = this task's best step in the sweep")
+    if labels and any(len(v) > 1 or not next(iter(v)).endswith(f"step{k}")
+                      for k, v in labels.items()):
+        print("\ncheckpoints:")
+        for k in sorted(labels):
+            print(f"  step {k:>9,}  {', '.join(sorted(labels[k]))}")
 
     print("\npeak per task:")
     for t in tasks:
