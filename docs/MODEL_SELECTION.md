@@ -58,29 +58,44 @@ permanent checkpoints will be kept at steps: [500, 1000, ...]
 
 ## 2. Finding the peak, after the run
 
-```bash
-./scripts/sweep_checkpoints.sh train_outputs/hyper_lora/cross8
-```
-
-Evaluates every `hypermod_inlet_step*.pt` on gsm8k, mbpp and humaneval and prints:
-
-```
-     step   humaneval       gsm8k        mbpp
-zero-shot       37.80       40.71       44.44
----------------------------------------------
-    4,000     21.54 *     26.81 *     25.48 *
-  130,000      4.47       19.86       16.62
-```
-
-Generative tasks only, by default, because that is where the entire signal is —
-between step 4,000 and 130,000 the multiple-choice tasks moved by 0.73 points.
-Add tasks explicitly if you want them:
+**On the 8-GPU node, sweep all ten and let it shard across the GPUs:**
 
 ```bash
-./scripts/sweep_checkpoints.sh <run_dir> "humaneval gsm8k mbpp arc_challenge boolq"
+ALL10="arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp humaneval"
+./scripts/sweep_checkpoints.sh train_outputs/hyper_lora/cross8 "$ALL10" 8
 ```
 
-Cost: roughly 25 min per checkpoint on one GPU for the three generative tasks.
+Eval uses one GPU, so the checkpoints run eight at a time. That is the whole
+difference in what is affordable:
+
+| | 1 GPU | 8 GPUs |
+|---|---|---|
+| 3 generative tasks, 9 checkpoints | ~4 h | **~30 min** |
+| all 10 benchmarks, 9 checkpoints | ~15 h | **~2 h** |
+
+Prints per-task scores against the frozen model, then the curve that matters:
+
+```
+=== 10-task average (this is the reported number) ===
+     step       avg   vs zero-shot
+zero-shot     56.09
+    4,000     57.35          +1.26  <- peak
+  130,000     54.58          -1.51
+```
+
+and writes a two-panel plot to `$INLET_OUTPUT_ROOT/sweep_curve.png`: every task
+on the left, the ten-task average on the right with the frozen-model line.
+
+**The ten-task average is the curve to read.** A per-task view hides it — between
+step 4,000 and 130,000 the seven multiple-choice tasks moved 0.73 points while
+the reported average moved 2.77.
+
+The average is only computed at steps where all ten were evaluated. A partial
+average is not comparable across steps: it would quietly reward whichever step
+happened to be missing the hardest task.
+
+Default (no task list) is the three generative tasks, which is the cheap way to
+find the peak before spending on the full sweep.
 
 ---
 

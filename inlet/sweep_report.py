@@ -74,9 +74,58 @@ def collect(results_dir: pathlib.Path):
     return out, skipped
 
 
+def _plot(curves, full_steps, path):
+    """Two panels: every task, and the ten-task average. Zero-shot as a dashed line."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("\n(matplotlib not installed; skipping --plot)")
+        return
+
+    has_avg = bool(full_steps)
+    fig, axes = plt.subplots(1, 2 if has_avg else 1, figsize=(13 if has_avg else 7, 4.5))
+    axes = axes if has_avg else [axes]
+
+    _x = lambda v: max(v, 1)          # log axis cannot place 0
+    for t in sorted(curves):
+        xs = sorted(curves[t])
+        axes[0].plot([_x(v) for v in xs], [curves[t][x] for x in xs],
+                     marker="o", ms=3, label=t)
+        if t in ZERO_SHOT:
+            axes[0].axhline(ZERO_SHOT[t], ls=":", lw=0.6, alpha=0.35)
+    # log, not symlog: steps are positive, and symlog spends half the axis on
+    # negative values that cannot occur. Step 0 (if a run checkpoints there) is
+    # nudged onto the axis rather than dropped.
+    axes[0].set_xscale("log")
+    axes[0].set_xlabel("training step"); axes[0].set_ylabel("score")
+    axes[0].set_title("per task (dotted = frozen model)")
+    axes[0].legend(fontsize=7, ncol=2)
+    axes[0].grid(alpha=0.25)
+
+    if has_avg:
+        zs_avg = sum(ZERO_SHOT.values()) / len(ZERO_SHOT)
+        ys = [sum(curves[t][s] for t in ZERO_SHOT) / len(ZERO_SHOT) for s in full_steps]
+        axes[1].plot([_x(v) for v in full_steps], ys, marker="o", color="tab:blue")
+        axes[1].axhline(zs_avg, ls="--", color="k", lw=1,
+                        label=f"frozen model {zs_avg:.2f}")
+        pk = full_steps[ys.index(max(ys))]
+        axes[1].annotate(f"peak {max(ys):.2f}\nstep {pk:,}", (_x(pk), max(ys)),
+                         textcoords="offset points", xytext=(8, -14), fontsize=8)
+        axes[1].set_xscale("log")
+        axes[1].set_xlabel("training step"); axes[1].set_ylabel("10-task average")
+        axes[1].set_title("the reported number")
+        axes[1].legend(fontsize=8); axes[1].grid(alpha=0.25)
+
+    fig.tight_layout(); fig.savefig(path, dpi=150)
+    print(f"\nplot -> {path}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("results_dir")
+    p.add_argument("--plot", metavar="PNG", help="also write a two-panel curve")
     a = p.parse_args(argv)
     d = pathlib.Path(a.results_dir)
     if not d.is_dir():
@@ -117,6 +166,34 @@ def main(argv=None):
         zs = ZERO_SHOT.get(t)
         tail = f"   vs zero-shot {zs:.2f} -> {v - zs:+.2f}" if zs else ""
         print(f"  {t:<14} {v:6.2f} at step {s:,}{tail}")
+
+    # THE HEADLINE CURVE. The paper reports an average over the ten benchmarks,
+    # so that average as a function of step is the curve that answers "when was
+    # the model best". A per-task view can hide it: between step 4,000 and
+    # 130,000 the seven multiple-choice tasks moved 0.73 points while the
+    # ten-task average moved 2.77.
+    #
+    # Only computed where every one of the ten was evaluated. A partial average
+    # is not comparable across steps and would silently reward whichever step
+    # happened to be missing the hardest task.
+    full = [s for s in steps if all(t in curves and s in curves[t] for t in ZERO_SHOT)]
+    if full:
+        print(f"\n=== {len(ZERO_SHOT)}-task average (this is the reported number) ===")
+        zs_avg = sum(ZERO_SHOT.values()) / len(ZERO_SHOT)
+        print(f"{'step':>9}{'avg':>10}{'vs zero-shot':>15}")
+        print(f"{'zero-shot':>9}{zs_avg:>10.2f}")
+        best = max(full, key=lambda s: sum(curves[t][s] for t in ZERO_SHOT))
+        for s in full:
+            v = sum(curves[t][s] for t in ZERO_SHOT) / len(ZERO_SHOT)
+            print(f"{s:>9,}{v:>10.2f}{v - zs_avg:>+15.2f}" + ("  <- peak" if s == best else ""))
+    else:
+        missing = sorted(set(ZERO_SHOT) - set(curves))
+        print(f"\n(no {len(ZERO_SHOT)}-task average: never evaluated {missing})")
+        print("  Run the sweep over all ten to get the curve the paper reports:")
+        print('    ./scripts/sweep_checkpoints.sh <run_dir> "' + " ".join(ZERO_SHOT) + '"')
+
+    if a.plot:
+        _plot(curves, full, a.plot)
 
     if len(set(peaks.values())) > 1:
         print("\nThe tasks do not peak at the same step. Whichever checkpoint you keep is")
