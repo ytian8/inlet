@@ -94,8 +94,22 @@ Results accumulate in one directory, so after several partial sweeps ask for the
 combined table — everything scored so far is still in it:
 
 ```bash
-python -m inlet.sweep_report $INLET_OUTPUT_ROOT/eval_results_inlet --plot curve.png
+python -m inlet.sweep_report $INLET_OUTPUT_ROOT/eval_results_inlet --paper --plot curve.png
 ```
+
+`--paper` prints the same numbers laid out like the results table — a row per
+task in its usual order, a column per checkpoint, both average rows computed:
+
+```
+| Task | zero-shot | step 4,000 | step 130,000 |
+|---|---|---|---|
+| arc_challenge | 65.70 | 69.28 | 70.02 |
+| ... |
+| **Avg (10 tasks)** | **56.09** | **57.35** | **54.58** |
+```
+
+Only the frozen model's own column is included. The other baselines are not in
+this repo and should be pasted alongside from wherever they are kept.
 
 ### Job counts
 

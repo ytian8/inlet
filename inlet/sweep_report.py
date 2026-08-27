@@ -134,10 +134,64 @@ def _plot(curves, full_steps, path):
     print(f"\nplot -> {path}")
 
 
+# The ten benchmarks in the order the results table lists them.
+TASK_ORDER = ["arc_challenge", "arc_easy", "boolq", "hellaswag", "openbookqa",
+              "piqa", "winogrande", "gsm8k", "mbpp", "humaneval"]
+
+
+def _paper_table(curves, labels):
+    """Markdown, laid out the way the results table is: a row per task.
+
+    The per-step view above is for reading a curve. This is for pasting next to
+    the baseline columns, which live outside this repo -- only the frozen model's
+    own scores are here, because those are published numbers for Mistral and not
+    ours to withhold or to leak.
+    """
+    steps = sorted({st for c in curves.values() for st in c})
+    if not steps:
+        return
+    tasks = [t for t in TASK_ORDER if t in curves] + \
+            [t for t in sorted(curves) if t not in TASK_ORDER]
+
+    def col(st):
+        names = labels.get(st, set())
+        best = next((n for n in names if "best_" in n), None)
+        return best.replace("hypermod_inlet_best_", "") if best else f"step {st:,}"
+
+    hdr = ["Task", "zero-shot"] + [col(st) for st in steps]
+    print("\n=== paste-ready ===\n")
+    print("| " + " | ".join(hdr) + " |")
+    print("|" + "---|" * len(hdr))
+
+    def fmt(v):
+        return f"{v:.2f}" if v is not None else ""
+
+    for t in tasks:
+        row = [t, fmt(ZERO_SHOT.get(t))] + [fmt(curves[t].get(st)) for st in steps]
+        print("| " + " | ".join(row) + " |")
+
+    # Averages only where every task in the set was scored. A partial average is
+    # a different measurement and would flatter whichever column has a gap.
+    for label, subset in (("**Avg (10 tasks)**", TASK_ORDER),
+                          ("**Avg (9, excl. humaneval)**", [t for t in TASK_ORDER if t != "humaneval"])):
+        zs = sum(ZERO_SHOT[t] for t in subset) / len(subset)
+        cells = []
+        for st in steps:
+            if all(t in curves and st in curves[t] for t in subset):
+                cells.append(f"**{sum(curves[t][st] for t in subset) / len(subset):.2f}**")
+            else:
+                cells.append("")
+        print(f"| {label} | **{zs:.2f}** | " + " | ".join(cells) + " |")
+    print("\nBlank average = not every task in that set was scored at that step.")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("results_dir")
     p.add_argument("--plot", metavar="PNG", help="also write a two-panel curve")
+    p.add_argument("--paper", action="store_true",
+                   help="also print a markdown table laid out like the results "
+                        "table: one row per task, one column per checkpoint")
     a = p.parse_args(argv)
     d = pathlib.Path(a.results_dir)
     if not d.is_dir():
@@ -208,6 +262,9 @@ def main(argv=None):
         print(f"\n(no {len(ZERO_SHOT)}-task average: never evaluated {missing})")
         print("  Run the sweep over all ten to get the curve the paper reports:")
         print('    ./scripts/sweep_checkpoints.sh <run_dir> "' + " ".join(ZERO_SHOT) + '"')
+
+    if a.paper:
+        _paper_table(curves, labels)
 
     if a.plot:
         _plot(curves, full, a.plot)
