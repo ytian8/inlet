@@ -58,6 +58,14 @@ echo "### 1b2c/4  generative canary: context/target split (CPU, no model) ###"
 "$PYBIN" -m inlet.canary
 
 echo
+echo "### 1b2d/4  val/generative leakage rules (CPU, no data) ###"
+# None of upstream's three validation splits contains gsm8k, mbpp or
+# humaneval -- the three tasks that collapsed. val/generative adds one, and
+# these are the rules that keep scored data out of it: humaneval can never
+# be in it, mbpp needs decontamination, an unvetted task is dropped.
+"$PYBIN" -m inlet.generative_val
+
+echo
 echo "### 1b3/4  the reconstructed reference checks its own contract (CPU, no torch model) ###"
 # These two run whether or not the reference baseline_prompt_tuning/ is present:
 # they assert the reconstruction satisfies the contract the ORIGINAL was tested

@@ -70,6 +70,7 @@ QUICKSTART with the reasons.
 | use a different number of GPUs | [Choosing the number of GPUs](#choosing-the-number-of-gpus) |
 | understand a failure | [Troubleshooting](#troubleshooting-symptom--cause--fix) — symptom → cause → fix, every row a real failure |
 | know why the environment is pinned the way it is | [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) — 23 numbered facts, each with how it was verified |
+| **run this on a cluster, start to finish** | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — two commands and the reasons |
 | launch a run, then pick which checkpoint to report | [`docs/MODEL_SELECTION.md`](docs/MODEL_SELECTION.md) — the commands, and why the obvious choice is the wrong one |
 | see every number this project reports, with provenance | [`docs/RESULTS.md`](docs/RESULTS.md) — **the source of truth**; all baselines, the Inlet column, and what is superseded |
 | check a result against a known-good run | [Known-good numbers](#known-good-numbers) |

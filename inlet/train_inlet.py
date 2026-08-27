@@ -77,6 +77,7 @@ from hyper_llm_modulator.utils import (
 from hyper_llm_modulator.utils.model_loading import get_emb_model_and_fns
 
 from inlet.canary import free_running_accuracy
+from inlet.generative_val import build_generative_val_dataloader
 from inlet.desc_pool import make_pooling_fn
 
 from inlet.hyper_prompt import HyperPrompt
@@ -182,6 +183,11 @@ class InletArguments(TrainingArguments):
     # --model_select_split names. 55 MB each, three splits. The alternative is
     # having to guess the right criterion before the run, and guessing wrong
     # cost 2.77 points of 10-task average on the 147,500-step run.
+    # Long-generation validation. None of upstream's three splits contains
+    # gsm8k, mbpp or humaneval -- the three tasks that collapsed -- so nothing in
+    # the loop was measuring them. "" disables. See inlet/generative_val.py for
+    # why humaneval can never be here and mbpp needs decontamination.
+    generative_val_tasks: str = "gsm8k"
     save_best_per_split: bool = True
     canary_samples: int = 4
     canary_max_new_tokens: int = 48
@@ -677,6 +683,26 @@ def main(args):
             pooling_fn=pooling_fn,
         )
     train_dataloader = dataloaders.pop("train")
+
+    # val/generative. Built after create_dataloaders and inside the same
+    # main_process_first region's shadow: get_datasets writes to the same
+    # transformed_datasets cache, and a second rank arriving mid-write dies with
+    # the FileNotFoundError described above. Rank 0 builds, everyone else waits.
+    if args.generative_val_tasks.strip():
+        _gen_names = tuple(t.strip() for t in args.generative_val_tasks.split(",") if t.strip())
+        with accelerator.main_process_first():
+            _gen_dl = build_generative_val_dataloader(
+                args, val_metadata, tokenizer, True,
+                emb_model, emb_tokenizer, task_desc_format_fn, pooling_fn, device,
+                task_names=_gen_names,
+            )
+        if _gen_dl is not None:
+            dataloaders["val/generative"] = _gen_dl
+        elif is_main:
+            logger.warning(
+                "val/generative requested (%s) but not built -- checkpoint selection "
+                "and the canary stay blind to long-generation tasks",
+                args.generative_val_tasks)
     # VERIFIED: upstream returns exactly
     #   {"train", "val/seen", "val/unseen", "val/benchmark"}
     # -- the three val splits are the same three eval groups the config defines

@@ -43,19 +43,24 @@ from inlet._env import find_t2l_root  # noqa: E402
 INLET_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Names that belong to some other program on the command line, not the trainer.
+# Only reachable for flags that share a command line WITH the trainer, since
+# check_cli_flags now ignores every other line. In practice that is torchrun,
+# which wraps the trainer in the same invocation, plus one placeholder.
 NOT_TRAINER_FLAGS = {
-    # torchrun / torch.distributed.run
+    # torchrun / torch.distributed.run: `torchrun --nproc_per_node=N -m inlet.train_inlet ...`
     "nproc_per_node", "nproc", "master_port", "master_addr", "nnodes", "node_rank",
     "rdzv_backend", "rdzv_endpoint", "standalone",
-    # pip / git / huggingface-cli
-    "exclude", "no_deps", "index_url", "upgrade", "recurse_submodules", "depth", "init",
-    # nvidia-smi
-    "format", "query_gpu", "noheader",
-    # inlet's own non-trainer entry points (eval_inlet, warm_datasets, probe_prompt, ...)
-    "zero_prompt", "no_soft_prompt", "task", "tasks", "checkpoint", "out_dir",
-    "model_dir", "only_failed", "workers", "max_depth", "quiet", "help", "version",
     # literal placeholder in train.sh's usage string
     "flag",
+    # other inlet entry points invoked by the same script: smoke.sh runs
+    # test_consistency_inlet --task, and eval.sh --zero-prompt, before it ever
+    # reaches train.sh
+    "task", "zero_prompt",
+    # pip / git / huggingface-cli / nvidia-smi. setup_env.sh is in scope because
+    # its "next steps" block prints a real ./scripts/train.sh line, whose
+    # --run_name and --checkpoint_steps SHOULD be checked -- these share the file.
+    "exclude", "no_deps", "index_url", "upgrade", "recurse_submodules",
+    "depth", "init", "format", "query_gpu", "noheader",
 }
 
 
@@ -366,10 +371,29 @@ def check_cli_flags(t2l, verbose):
                 queue += bb
                 break
 
+    # Check every flag in the scripts that RUN THE TRAINER, and no others.
+    #
+    # Scoped by FILE, not by line. train.sh assembles the recipe into an ARGS
+    # array far from the `-m inlet.train_inlet` line, so a line-scoped version
+    # silently stopped checking the recipe -- caught by mutation-testing it, and
+    # the reason this is a file-level filter.
+    #
+    # The previous version scanned every script, so every flag belonging to some
+    # other program had to go in NOT_TRAINER_FLAGS by hand. A denylist can only
+    # grow, and one that grows is a check that weakens: `--plot`, an argument to
+    # inlet.sweep_report, was reported as a missing trainer field. Scripts that
+    # never start the trainer are now simply out of scope.
     used = {}
     for sh in sorted(glob.glob(os.path.join(INLET_ROOT, "scripts", "*.sh"))):
-        for m in re.finditer(r"--([a-zA-Z_][a-zA-Z0-9_]*)[= ]",
-                             open(sh, encoding="utf-8").read()):
+        text = open(sh, encoding="utf-8").read()
+        # LAUNCHES the trainer, not merely mentions it, and not in a comment.
+        # setup_env.sh both verifies the install with `import inlet.train_inlet`
+        # and names `python -m inlet.train_inlet` in a comment; either would drag
+        # pip's and git's flags into scope.
+        code = "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith("#"))
+        if not re.search(r"-m\s+inlet\.train_inlet|scripts/train\.sh|\./train\.sh", code):
+            continue
+        for m in re.finditer(r"--([a-zA-Z_][a-zA-Z0-9_]*)[= ]", text):
             used.setdefault(m.group(1), set()).add(os.path.basename(sh))
 
     bad = 0
