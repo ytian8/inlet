@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# outputs: checkpoints are ~55MB each and the queue writes one per config
+train_outputs/
+wandb/
+*.pt
+*.log
+warm_failures.json
+
+# never commit these
+.env
+*.token
+hf_token*
+
+# upstream checkout (setup_env.sh clones it here); never ours to commit
+third_party/
+# local CPU-only venv for running the no-GPU gates without renting a box
+.venv-cpu/
+
+# upstream checkout (setup_env.sh clones it here); never ours to commit
+third_party/

@@ -1,0 +1,105 @@
+# Pinned to the versions verified working on 2026-08-23, on both the ICLR
+# cluster and a RunPod A100-80GB. These are the SAME versions the per-task
+# prompt-tuning baseline was measured under, which is the only reason Inlet's
+# numbers can be put in one table with it.
+#
+# Install torch FIRST and from the index that matches your driver -- see
+# scripts/setup_env.sh. Pip alone will happily give you a CUDA build your
+# driver cannot run.
+#
+# NOT LISTED ON PURPOSE: trl. Upstream's pyproject lists it, but nothing in
+# text-to-lora or inlet ever imports it -- `trl_activate_neftune` and
+# `neftune_post_forward_hook` are both defined in
+# hyper_llm_modulator/sft_trainer.py itself. Pinning it broke the install
+# outright: trl's own datasets floor conflicts with datasets==3.5.1 and pip
+# exits with ResolutionImpossible. Do not add it back.
+#
+# NOT LISTED ON PURPOSE: flash-attn. Neither environment has a wheel for
+# torch 2.9 / cu13, both run sdpa, and mixing the two changes results at the
+# 1e-3 level. See docs/ENVIRONMENT.md, "Attention kernels".
+torch==2.9.0
+transformers==4.57.6
+accelerate==1.14.0
+peft==0.20.0
+datasets==3.5.1
+numpy==2.2.6
+sentencepiece
+safetensors
+pyyaml
+tqdm
+wandb==0.28.1
+# hf_transfer: NOT optional in practice. Several GPU images (RunPod's among
+# them) export HF_HUB_ENABLE_HF_TRANSFER=1 in the container environment, and
+# huggingface_hub then refuses every download with
+#   ValueError: Fast download using 'hf_transfer' is enabled ... but
+#   'hf_transfer' package is not available
+# before a single byte moves. Installing it makes the box work whether or not
+# the image sets that variable.
+hf_transfer
+
+# ---- upstream's OWN transitive deps, which its pyproject does not pin and
+# which are not installed by the block above. Every one of these was found the
+# hard way, by an ImportError several minutes into a run on a fresh box
+# (2026-08-24). hyper_llm_modulator.utils imports metric_fns at package import
+# time, so ALL of these are needed even for training, which never scores
+# anything. Keep this list; it is the difference between a 10-minute setup and
+# a two-hour one.
+inflect
+torchmetrics
+nltk
+rouge_score
+sacrebleu
+absl-py
+scikit-learn
+immutabledict
+langdetect
+editdistance
+word2number
+pandas
+matplotlib
+fasttext-wheel
+colorlog
+
+# ---- vLLM: needed for EVAL, and also for TRAINING ----
+# The README used to say training does not need vLLM. That is wrong:
+# `hyper_llm_modulator.utils` reaches vllm_eval through its import chain, so
+# `python -m inlet.train_inlet` fails with ModuleNotFoundError: vllm before it
+# reaches a single training step. Verified 2026-08-24.
+#
+# vllm 0.11.1 ships kernels built against CUDA 12 while torch 2.9.0 here is
+# cu13; the upstream env.sh LD_PRELOADs the cu12 cublas/cudart to bridge that.
+# scripts/common.sh sources it automatically.
+vllm==0.11.1
+# ---------------------------------------------------------------------------
+# evalplus: MUST come from this git commit, NOT from PyPI, and NOT with deps.
+#
+#   * PyPI evalplus >= 0.3.1 renamed `evalplus.eval.SUCCESS` to `_SUCCESS`, and
+#     the vendored fishfarm imports the old public name:
+#         ImportError: cannot import name 'SUCCESS' from 'evalplus.eval'.
+#         Did you mean: '_SUCCESS'?
+#     upstream's uv.lock pins the commit below; match it.
+#   * with deps, its resolver moves transformers. Hence --no-deps, which then
+#     leaves its own runtime imports missing -- they surface far away, inside
+#     `python -m inlet.train_inlet`, as ModuleNotFoundError: tempdir / wget / ...
+#     So install those five by hand too.
+#
+# pip install --no-deps "git+https://github.com/evalplus/evalplus@1895d2f6aa8895044a7cf69defc24bd57695e885"
+# pip install --no-deps tempdir wget termcolor multipledispatch appdirs rich
+#
+# DO NOT add evalplus to this file: `pip install -r` would pull its deps.
+# scripts/setup_env.sh installs it separately, with --no-deps. If you are
+# installing by hand, run those two commands above verbatim.
+# ---------------------------------------------------------------------------
+tempdir
+wget
+termcolor
+multipledispatch
+appdirs
+rich
+
+# ---- NOT a package, but the same class of trap ----
+# torchvision/torchaudio that ship with the base image are built against a
+# different torch. Importing transformers then pulls torchvision and the ABI
+# mismatch aborts the process with std::bad_alloc -- not an ImportError, a
+# core dump. Inlet needs neither, so remove them:
+#     pip uninstall -y torchvision torchaudio
