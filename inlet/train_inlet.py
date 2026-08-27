@@ -178,6 +178,11 @@ class InletArguments(TrainingArguments):
     #
     # Costs a few short greedy generations per split per validation -- seconds,
     # no vLLM, no new dataset. 0 disables it.
+    # Save the best checkpoint for EVERY validation split, not only the one
+    # --model_select_split names. 55 MB each, three splits. The alternative is
+    # having to guess the right criterion before the run, and guessing wrong
+    # cost 2.77 points of 10-task average on the 147,500-step run.
+    save_best_per_split: bool = True
     canary_samples: int = 4
     canary_max_new_tokens: int = 48
     # DDP. Each rank runs its OWN hierarchical sampler with its own seed and
@@ -1031,12 +1036,28 @@ def main(args):
                             f"to an arbitrary one -- that is the bug this replaced."
                         )
                     cur = vi[args.model_select_split].get("sft_loss", float("inf"))
-                    # Track every split's own optimum so the end-of-run summary can
-                    # say whether the saved checkpoint is also the best elsewhere.
+                    # Keep the best checkpoint for EVERY split, not just the
+                    # selected one. Three files at 55 MB each against a run that
+                    # costs days: there is no reason to make anyone choose in
+                    # advance, and the 4,000 vs 130,000 step comparison showed the
+                    # choice is worth 2.77 points of 10-task average.
+                    #
+                    # This does NOT make the choice for you. Decide which split
+                    # the paper reports BEFORE looking at benchmark scores --
+                    # keeping all three and then reporting whichever scored best
+                    # downstream is selection on the test set. val/unseen is the
+                    # only one that touches no benchmark data.
                     for _sp, _m in vi.items():
                         _l = _m.get("sft_loss", float("inf"))
                         if _l < split_best.get(_sp, (float("inf"), -1))[0]:
                             split_best[_sp] = (_l, curstep)
+                            if args.save_best_per_split:
+                                _fn = "hypermod_inlet_best_" + _sp.replace("/", "_") + ".pt"
+                                save_checkpoint(save_dir, hypermod, args, curstep,
+                                                extra={"best_split": _sp, "best_loss": _l,
+                                                       "val": vi},
+                                                accelerator=accelerator, filename=_fn)
+                                logger.info(f"[step {curstep}] new best {_sp} {_l:.4f} -> {_fn}")
                     if cur < best_val:
                         best_val = cur
                         save_checkpoint(save_dir, hypermod, args, curstep,
