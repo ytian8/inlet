@@ -34,6 +34,10 @@ echo "--------------------------------------------------------------"
 
 for t in $TASKS; do
   echo "=== $t ==="
-  "$PYBIN" -m inlet.eval_inlet --task "$t" --out-dir "$OUT" \
+  # EXTRA_EVAL_ARGS lets a sweep trim the description set without this script
+  # having to know what it is trimming. Unset for a normal run, so the
+  # reported protocol stays the default.
+  # shellcheck disable=SC2086
+  "$PYBIN" -m inlet.eval_inlet --task "$t" --out-dir "$OUT" ${EXTRA_EVAL_ARGS:-} \
     ${CKPT:+--checkpoint "$CKPT"} "$@"
 done

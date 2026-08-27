@@ -173,6 +173,20 @@ def parse_args():
     )
     p.add_argument("--descriptions", default=None,
                    help="optional json {tag: description}; defaults to the task's eval_descs")
+    # A full scoring run is 3 eval_descs + 3 random_descs per task, which is the
+    # reported protocol and is what you want for the number that goes in a table.
+    # A checkpoint sweep wants the SHAPE of the curve over a ladder of
+    # checkpoints, and paying 6x for it is the difference between a sweep that
+    # fits in an afternoon and one that does not. These two trim it.
+    #
+    # A number produced with --max-eval-descs 1 is NOT comparable to a reported
+    # one: it is a single description rather than an average over three. The
+    # results JSON records how many were used so the two cannot be confused.
+    p.add_argument("--max-eval-descs", type=int, default=0, metavar="N",
+                   help="use only the first N real descriptions (0 = all). "
+                        "For sweeps; not comparable to a reported number.")
+    p.add_argument("--skip-random-descs", action="store_true",
+                   help="skip the junk-description control. For sweeps.")
     p.add_argument("--model-dir", default=BASE_MODEL)
     p.add_argument("--gpu-memory-utilization", type=float, default=0.7)
     # output_root(), not HERE: when baseline_prompt_tuning is importable HERE is
@@ -225,7 +239,8 @@ def main() -> None:
         # whole config, not just emb_model: the pooling width must be the
         # checkpoint's own. See load_description_encoder.
         enc = load_description_encoder(train_config, device="cuda")
-        descs = json.load(open(args.descriptions)) if args.descriptions else _default_descs(args.task)
+        descs = (json.load(open(args.descriptions)) if args.descriptions
+                 else _default_descs(args.task, args.max_eval_descs, args.skip_random_descs))
         prompts = generate_prompts_for_task(hypermod, descs, *enc, device="cuda")
         # the generator and the description encoder are done; give the GPU back
         # to vLLM before the engine is built.
@@ -244,6 +259,8 @@ def main() -> None:
     metrics = {k: v.aggregate_metrics for k, v in results.items()}
 
     os.makedirs(args.out_dir, exist_ok=True)
+    _n_eval = sum(1 for k in prompts if k.startswith("eval_descs"))
+    _has_random = any(k.startswith("random_descs") for k in prompts)
     out_path = os.path.join(args.out_dir, f"{stem}.json")
     with open(out_path, "w") as f:
         json.dump(
@@ -253,6 +270,15 @@ def main() -> None:
                 "checkpoint": args.checkpoint,
                 "n_virtual_tokens": {k: int(v.shape[0]) for k, v in prompts.items()},
                 "results": {args.task: metrics},
+                # Which protocol produced these numbers. A sweep run with
+                # --max-eval-descs 1 is a single description, not an average over
+                # three, and putting the two in one table would be comparing
+                # different measurements. Recorded here so they cannot be.
+                "protocol": {
+                    "n_eval_descs": _n_eval,
+                    "random_descs": _has_random,
+                    "reported_protocol": _n_eval >= 3,
+                },
                 "train_config": train_config,
             },
             f,
@@ -313,8 +339,13 @@ _N_EVAL_QUESTIONS = {
 }
 
 
-def _default_descs(task: str) -> dict:
-    """The task's eval_descs from the T2L config, tagged by split+index."""
+def _default_descs(task: str, max_eval_descs: int = 0, skip_random: bool = False) -> dict:
+    """The task's eval_descs from the T2L config, tagged by split+index.
+
+    `max_eval_descs` / `skip_random` trim the set for a checkpoint sweep. A
+    number produced with fewer than all three real descriptions is NOT the
+    reported protocol and must not be put in the same table as one that is.
+    """
     import yaml
 
     # Resolve against T2L_ROOT, never against HERE.
@@ -338,8 +369,12 @@ def _default_descs(task: str) -> dict:
             "  * or pass --descriptions with your own json {tag: description}"
         )
     cfg = yaml.safe_load(open(cfg_path))
-    out = {f"eval_descs__{i}": d for i, d in enumerate(cfg["eval_ds_info"][task]["descriptions"])}
-    out.update({f"random_descs__{i}": d for i, d in enumerate(cfg["additional_eval_descs"])})
+    reals = cfg["eval_ds_info"][task]["descriptions"]
+    if max_eval_descs and max_eval_descs > 0:
+        reals = reals[:max_eval_descs]
+    out = {f"eval_descs__{i}": d for i, d in enumerate(reals)}
+    if not skip_random:
+        out.update({f"random_descs__{i}": d for i, d in enumerate(cfg["additional_eval_descs"])})
     return out
 
 

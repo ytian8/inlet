@@ -25,6 +25,14 @@ RUN_DIR="${1:?usage: sweep_checkpoints.sh <run_dir> [TASKS] [N_GPUS]}"
 SWEEP_TASKS="${2:-gsm8k mbpp humaneval}"
 NGPU="${3:-1}"
 
+# A sweep wants the SHAPE of the curve, so one real description per task is
+# enough and costs a sixth of the full protocol. The reported number needs all
+# three plus the junk-description control -- set SWEEP_FULL=1 for that.
+# eval_inlet records which protocol produced each file, so the two can never be
+# put in one table by accident.
+SWEEP_EVAL_ARGS="${SWEEP_EVAL_ARGS:---max-eval-descs 1 --skip-random-descs}"
+[[ "${SWEEP_FULL:-0}" == "1" ]] && SWEEP_EVAL_ARGS=""
+
 mapfile -t CKPTS < <(ls -1 "$RUN_DIR"/hypermod_inlet_step*.pt 2>/dev/null \
                      | sed 's/.*step\([0-9]*\)\.pt/\1 &/' | sort -n | cut -d' ' -f2)
 if [[ ${#CKPTS[@]} -eq 0 ]]; then
@@ -39,16 +47,32 @@ echo "  tasks: $SWEEP_TASKS"
 printf '  %s\n' "${CKPTS[@]}"
 echo
 
+# One job per (checkpoint, task). Sharding by checkpoint alone would leave seven
+# of eight GPUs idle whenever there is one checkpoint to score -- which is the
+# case for the number that actually gets reported.
+#
+# Each job builds its own vLLM engine, and on a 7B that build is ~9 min against
+# ~2.6 min per description variant. Engine builds, not variants, are what a
+# sweep costs, and one job per (checkpoint, task) is the finest split that does
+# not pay for extra ones.
+JOBS=()
+for ck in "${CKPTS[@]}"; do
+  for t in $SWEEP_TASKS; do JOBS+=("$ck|$t"); done
+done
+echo "${#JOBS[@]} job(s) = ${#CKPTS[@]} checkpoint(s) x $(wc -w <<< "$SWEEP_TASKS") task(s)"
+echo
+
 LOGDIR="$INLET_OUTPUT_ROOT/sweep_logs"; mkdir -p "$LOGDIR"
 fail=0
-for ((i = 0; i < ${#CKPTS[@]}; i += NGPU)); do
+for ((i = 0; i < ${#JOBS[@]}; i += NGPU)); do
   pids=()
-  for ((g = 0; g < NGPU && i + g < ${#CKPTS[@]}; g++)); do
-    ck="${CKPTS[i + g]}"
+  for ((g = 0; g < NGPU && i + g < ${#JOBS[@]}; g++)); do
+    IFS='|' read -r ck t <<< "${JOBS[i + g]}"
     step="$(basename "$ck" | sed 's/.*step\([0-9]*\)\.pt/\1/')"
-    echo "  [gpu $g] step $step"
-    CUDA_VISIBLE_DEVICES="$g" TASKS="$SWEEP_TASKS" \
-      ./scripts/eval.sh "$ck" > "$LOGDIR/step${step}.log" 2>&1 &
+    echo "  [gpu $g] step $step / $t"
+    CUDA_VISIBLE_DEVICES="$g" TASKS="$t" \
+      ${SWEEP_EVAL_ARGS:+EXTRA_EVAL_ARGS="$SWEEP_EVAL_ARGS"} \
+      ./scripts/eval.sh "$ck" > "$LOGDIR/step${step}_${t}.log" 2>&1 &
     pids+=($!)
   done
   # Wait for the whole wave and report which member died, rather than letting

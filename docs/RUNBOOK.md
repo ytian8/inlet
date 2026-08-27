@@ -56,12 +56,35 @@ ALL10="arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k m
 ./scripts/sweep_checkpoints.sh /root/outputs/hyper_lora/cross8 "$ALL10" 8
 ```
 
-Eval uses one GPU, so eight checkpoints run at once:
+One job per (checkpoint, task), spread across the GPUs. Each job builds its own
+vLLM engine, and **the engine build is the cost, not the eval**: measured on one
+A100, a 7B engine takes ~9 min to build and each description variant ~2.6 min
+after that.
 
-| | 1 GPU | 8 GPUs |
+So a sweep runs **one** description per task — enough for the shape of the curve
+at a sixth of the price. `SWEEP_FULL=1` runs the full reported protocol instead.
+
+| | jobs | 8 GPUs |
 |---|---|---|
-| 3 generative tasks × 9 checkpoints | ~4 h | **~30 min** |
-| all 10 benchmarks × 9 checkpoints | ~15 h | **~2 h** |
+| 3 generative tasks × 9 checkpoints | 27 | **~50 min** |
+| all 10 benchmarks × 9 checkpoints | 90 | **~2.5 h** |
+| **the reported number**: 10 tasks × 1 checkpoint, full protocol | 10 | **~50 min** |
+
+**Time one task before trusting those.** They extrapolate from humaneval, which
+is 164 problems of long generation; the multiple-choice tasks have far more
+questions but emit one or two tokens each, and those pull in opposite directions:
+
+```bash
+time TASKS=arc_challenge ./scripts/eval.sh <ckpt>
+```
+
+A swept number and a reported number are **different measurements** — one
+description versus an average over three — and must not go in the same table.
+Each results file records which it was:
+
+```json
+"protocol": { "n_eval_descs": 1, "random_descs": false, "reported_protocol": false }
+```
 
 Prints per-task scores against the frozen model, then:
 
@@ -79,12 +102,24 @@ right with the frozen-model line.
 Drop `"$ALL10" 8` to sweep only the three generative tasks; that is the cheap way
 to find the peak before paying for the full sweep.
 
+**The number for the paper** is one checkpoint under the full protocol:
+
+```bash
+TASKS="$ALL10" ./scripts/eval.sh /root/outputs/hyper_lora/cross8/hypermod_inlet.pt
+```
+
+That is 3 real descriptions averaged plus the 3 junk-description controls, which
+is T2L's protocol and what makes the numbers comparable to theirs. The junk
+controls are the C measurement: real minus random is how much the description is
+worth, and on the last checkpoint measured it was +0.41 points on humaneval —
+i.e. nothing.
+
 ## 3. Why the benchmarks are not evaluated during training
 
-A full 10-benchmark eval is ~100 min on one GPU. Every 4,000 steps over 147,500
-steps is 36 of them — 60 hours of eval against ~15 hours of training — and all
-eight GPUs are busy training, so each one would have to pause the run and build a
-vLLM engine.
+A full 10-benchmark eval is ~4 h on one GPU (ten engine builds plus six
+description variants each). Every 4,000 steps over 147,500 steps is 36 of them,
+and all eight GPUs are busy training, so each would have to pause the run and
+rebuild a vLLM engine.
 
 So: checkpoints during, sweep after. Same information, and the sweep parallelises
 across the 8 GPUs when nothing else needs them.
