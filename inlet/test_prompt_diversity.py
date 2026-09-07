@@ -3,10 +3,13 @@
 Run: python -m inlet.test_prompt_diversity
 """
 
+import ast
+import inspect
 import sys
 
 import torch
 
+import inlet.loss as loss_mod
 from inlet.loss import prompt_diversity_loss
 
 _fails = []
@@ -87,6 +90,46 @@ def main():
     check("KNOWN-BAD: measuring P instead of P-base understates the spread",
           vf_wrong < vf_right / 5,
           f"P-base {vf_right.item():.4f} vs P {vf_wrong:.4f}")
+
+    # --- the diagnostic must not be gated on the treatment ------------------
+    # `varying_fraction` is the readout the whole experiment is decided on, and
+    # the treated arms are only interpretable against the untreated ones. When
+    # this was nested inside `if prompt_diversity:` every arm still trained,
+    # still logged a falling loss, and still produced checkpoints -- only the
+    # baselines silently had no vf trajectory to be compared with. Nothing at
+    # runtime says so, hence a static check.
+    print("\nget_loss_batch_inlet wiring")
+    fn = next(n for n in ast.parse(inspect.getsource(loss_mod)).body
+              if isinstance(n, ast.FunctionDef) and n.name == "get_loss_batch_inlet")
+
+    def guarded_by_prompt_diversity(node):
+        """Is `node` inside an `if prompt_diversity...` within this function?"""
+        for parent in ast.walk(fn):
+            if not isinstance(parent, ast.If):
+                continue
+            names = {n.id for n in ast.walk(parent.test) if isinstance(n, ast.Name)}
+            if "prompt_diversity" in names and any(node is d for d in ast.walk(parent)):
+                return True
+        return False
+
+    writes = [n for n in ast.walk(fn)
+              if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+              and n.value.id == "out" and isinstance(n.slice, ast.Constant)
+              and n.slice.value == "varying_fraction"]
+    check("varying_fraction is assigned in get_loss_batch_inlet", len(writes) >= 1,
+          f"{len(writes)} assignment(s)")
+    check("varying_fraction is logged regardless of --prompt_diversity",
+          bool(writes) and not all(guarded_by_prompt_diversity(w) for w in writes),
+          "every assignment sits under `if prompt_diversity`" if writes else "not assigned")
+
+    # and the control: the penalty itself SHOULD be gated, or every run is treated
+    pen = [n for n in ast.walk(fn)
+           if isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+           and n.value.id == "out" and isinstance(n.slice, ast.Constant)
+           and n.slice.value == "prompt_diversity_loss"]
+    check("KNOWN-BAD: the penalty is still gated on --prompt_diversity",
+          bool(pen) and any(guarded_by_prompt_diversity(p) for p in pen),
+          f"{sum(guarded_by_prompt_diversity(p) for p in pen)}/{len(pen)} gated")
 
     print(f"\n{'FAILED: ' + ', '.join(_fails) if _fails else 'all checks passed'}")
     return 1 if _fails else 0

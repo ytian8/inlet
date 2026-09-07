@@ -166,12 +166,17 @@ def get_loss_batch_inlet(
     zero = torch.zeros((), device=model.device)
     out["prompt_diversity_loss"] = zero
     out["contrastive_loss"] = zero
-    if prompt_diversity and override_prompt is None:
+    if override_prompt is None:
         # `hypermod` may be a DDP wrapper; `base` lives on the module.
         inner = getattr(hypermod, "module", hypermod)
         hinge, vf = prompt_diversity_loss(soft_prompt, inner.base, prompt_diversity_target)
-        out["prompt_diversity_loss"] = hinge * prompt_diversity
+        # Logged on EVERY run, not only the ones that penalise it. The whole
+        # point of the treated arms is to be read against an untreated one, and
+        # a trajectory that exists for a single arm compares to nothing. Costs
+        # two norms over a tensor the step already materialised.
         out["varying_fraction"] = vf.detach()
+        if prompt_diversity:
+            out["prompt_diversity_loss"] = hinge * prompt_diversity
 
     inputs_embeds, attention_mask, labels = build_prompted_inputs(model, batch, soft_prompt)
     outputs = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
