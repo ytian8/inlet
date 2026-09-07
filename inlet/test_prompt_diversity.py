@@ -118,9 +118,10 @@ def main():
               and n.slice.value == "varying_fraction"]
     check("varying_fraction is assigned in get_loss_batch_inlet", len(writes) >= 1,
           f"{len(writes)} assignment(s)")
+    ungated = [w for w in writes if not guarded_by_prompt_diversity(w)]
     check("varying_fraction is logged regardless of --prompt_diversity",
-          bool(writes) and not all(guarded_by_prompt_diversity(w) for w in writes),
-          "every assignment sits under `if prompt_diversity`" if writes else "not assigned")
+          bool(ungated),
+          f"{len(ungated)}/{len(writes)} assignment(s) outside the guard")
 
     # and the control: the penalty itself SHOULD be gated, or every run is treated
     pen = [n for n in ast.walk(fn)
