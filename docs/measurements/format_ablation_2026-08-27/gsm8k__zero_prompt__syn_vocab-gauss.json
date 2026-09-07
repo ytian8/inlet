@@ -1,0 +1,73 @@
+{
+  "task": "gsm8k",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0,
+    "synthetic_vocab": 32,
+    "synthetic_gauss": 32
+  },
+  "results": {
+    "gsm8k": {
+      "zero_prompt": {
+        "acc": 0.40561031084154664
+      },
+      "synthetic_vocab": {
+        "acc": 0.4245640636846095
+      },
+      "synthetic_gauss": {
+        "acc": 0.3457164518574678
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 1319,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 1319,
+      "chars_mean": 712.8,
+      "chars_median": 659,
+      "chars_p90": 1122,
+      "words_mean": 140.5,
+      "words_median": 130,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet's ducks lay 16 eggs per day.\n2. She uses 3 eggs for breakfast and 4 eggs for baking muffins, so she consumes 7 eggs daily.\n3. Therefore, she has 16 - 7 = <<16-7=9>>9 eggs left to sell.\n4. She sells each egg for $2, so her daily earnings are 9 eggs * $2/egg = $<<9*2=18>>18. Answer: \\boxed{",
+        "The robe requires 2 bolts of blue fiber. We're also told that it takes half as much white fiber as blue fiber. So, we need to find half the amount of blue fiber first:\n\nHalf of blue fiber = 2 bolts / 2 (since half is half of 2) = 1 bolt\n\nNow, we know that the robe takes half as much white fiber as b"
+      ]
+    },
+    "synthetic_vocab": {
+      "n": 1319,
+      "chars_mean": 679.5,
+      "chars_median": 620,
+      "chars_p90": 1051,
+      "words_mean": 134.9,
+      "words_median": 123,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet has 16 eggs laid by her ducks every day.\n2. She uses 3 eggs for breakfast and 4 eggs for baking muffins.\n3. So, she sells the remaining eggs at the farmers' market.\n\nFirst, let's find out how many eggs she sells:\n16 eggs (total) - 3 eggs (for breakfast) - 4 eggs (for baking muffins) = 9 e",
+        "The robe requires 2 bolts of blue fiber and half that amount of white fiber. Half of the amount of blue fiber is:\n\nhalf of blue fiber = 2 bolts / 2\nhalf of blue fiber = 1 bolt\n\nSo, the robe needs 1 bolt of white fiber for every bolt of blue fiber. Therefore, the total amount of fiber required is:\n\nt"
+      ]
+    },
+    "synthetic_gauss": {
+      "n": 1319,
+      "chars_mean": 648.1,
+      "chars_median": 587,
+      "chars_p90": 1021,
+      "words_mean": 128.5,
+      "words_median": 115,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "First, let's find out how many eggs Janet has left after eating for breakfast and baking muffins:\n\n1. Janet lays 16 eggs per day.\n2. She eats 3 eggs for breakfast.\n3. She uses 4 eggs for baking muffins.\n\nSo, the number of eggs Janet has left to sell is:\n\n16 eggs/day (total laid) - 3 eggs/day (for br",
+        "A robe takes 2 bolts of blue fiber. It also takes half that much white fiber. Half of 2 is 1 bolt. So, a robe takes 2 bolts of blue fiber and 1 bolt of white fiber in total."
+      ]
+    }
+  }
+}

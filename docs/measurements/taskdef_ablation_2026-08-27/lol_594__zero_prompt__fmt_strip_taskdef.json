@@ -1,0 +1,44 @@
+{
+  "task": "lol_594",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_594": {
+      "zero_prompt": {
+        "rouge1_precision": 0.147135786651468,
+        "rouge1_recall": 0.662065897833525,
+        "rouge1_fmeasure": 0.22376196491304828,
+        "rougeL_precision": 0.1220435202136848,
+        "rougeL_recall": 0.5533275507450458,
+        "rougeL_fmeasure": 0.1858343038266557
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 650,
+    "n_changed": 650,
+    "example_before": "ce may be applied either to the wheel or to the axle. In both cases, the direction of the force does not change, but the force is either increased or applied over a greater distance. Answer: direction",
+    "example_after": "Passage: In a wheel and axle, force may be applied either to the wheel or to the axle. In both cases, the direction of the force does not change, but the force is either increased or applied over a gr"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 650,
+      "chars_mean": 520.9,
+      "chars_median": 414,
+      "chars_p90": 970,
+      "words_mean": 83.1,
+      "words_median": 66,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "The direction of the force applied to a wheel and axle system remains the same, whether it is applied to the wheel or the axle. However, the magnitude or distance over which the force is applied can change depending on where the force is applied.",
+        "Correct answer: natural selection\n\nExplanation: Natural selection is the process by which certain heritable traits become more or less common in a population over generations based on their impact on an organism's ability to survive and reproduce in its environment. Traits that provide an advantage,"
+      ]
+    }
+  }
+}

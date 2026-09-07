@@ -1,0 +1,42 @@
+{
+  "task": "lol_319",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_319": {
+      "zero_prompt": {
+        "rouge1_precision": 0.03392158191856345,
+        "rouge1_recall": 0.6774193548387096,
+        "rouge1_fmeasure": 0.06379005239534596,
+        "rougeL_precision": 0.03392158191856345,
+        "rougeL_recall": 0.6774193548387096,
+        "rougeL_fmeasure": 0.06379005239534596
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 248,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 248,
+      "chars_mean": 172.1,
+      "chars_median": 164,
+      "chars_p90": 281,
+      "words_mean": 27.2,
+      "words_median": 25,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0282,
+      "examples": [
+        "The second sentence is unrelated to the target profession of commander. Being athletic and a stickler for details are not stereotypes or anti-stereotypes of commanders.",
+        "The second sentence is unrelated to the target profession of assistant. There is no indication in the sentence that Karen is an assistant to someone else, and the sentence does not make any assumptions or oversimplifications about assistants based on their profession."
+      ]
+    }
+  }
+}

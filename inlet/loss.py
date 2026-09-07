@@ -44,6 +44,94 @@ def build_prompted_inputs(model, batch, soft_prompt):
     )
 
 
+def prompt_diversity_loss(soft_prompt, base, target: float):
+    """Hinge that refuses to let the generated prompt become a constant.
+
+    `representation collapse` is the named failure mode of hypernetworks: the
+    network learns to emit nearly identical parameters whatever the conditioning
+    input, which makes the conditioning redundant (Hyper-DFS, App. B.2). Inlet
+    has the textbook signature -- cos(prompt from a real description, prompt
+    from junk) = 0.9999 and a random-description control worth +0.41 points --
+    and plain SFT contains nothing that rewards telling two descriptions apart.
+
+    Hyper-DFS penalises this with `-Var`, which is unbounded below: the cheapest
+    way to minimise it is to blow the variance up. This is a hinge on the SAME
+    quantity `probe_prompt.py` reports as `varying_fraction` -- the size of the
+    description-dependent part of the head output relative to the part that is
+    constant across the batch, measured at 5.4% on the 147.5k-step run. It is
+    bounded in [0, target], it stops pushing once the target is met, and the
+    number it optimises is the number the diagnostic prints, so a run can be
+    read against its own gate.
+
+    Costs no extra forward pass: the spread is taken across the batch the SFT
+    term already ran.
+
+    Returns (hinge_loss, varying_fraction); both zero with fewer than two rows.
+    """
+    if soft_prompt.shape[0] < 2:
+        z = soft_prompt.new_zeros(())
+        return z, z
+    head = soft_prompt.float() - base.float().unsqueeze(0)      # [bs, m, d]
+    mean = head.mean(0)                                          # [m, d]
+    resid = (head - mean).reshape(-1, head.shape[-1]).norm(dim=-1).mean()
+    const = mean.norm(dim=-1).mean().clamp_min(1e-12)
+    varying_fraction = resid / const
+    hinge = torch.relu(torch.as_tensor(target, device=head.device) - varying_fraction)
+    return hinge, varying_fraction
+
+
+def contrastive_task_loss(
+    batch, model, soft_prompt, matched_loss, *, margin, shift,
+    equally_weight_sample, label_smoothing,
+):
+    """Make the description's prompt work better on ITS task than on another's.
+
+    `prompt_diversity_loss` only asks the prompts to differ. It does not ask
+    them to differ *usefully*: a generator could satisfy it with task-shaped
+    noise. This asks for the thing the random-description control actually
+    measures -- score(real description) - score(junk) -- by scoring each
+    example twice, once under its own prompt and once under a neighbour's:
+
+        L = relu(margin - (L_mismatched - L_matched))
+
+    The hinge stops once the mismatched pairing is `margin` nats worse, so the
+    term cannot keep distorting the SFT objective after the point is made.
+
+    COSTS A SECOND FORWARD AND BACKWARD through the frozen LM -- roughly 2x the
+    step time. That is the price of a signal defined on pairs.
+
+    `shift` rolls the prompts along the batch axis. The sampler lays a batch out
+    as n_tasks_per_batch groups of n_points_per_task rows, so a shift smaller
+    than n_points_per_task would pair some rows with their OWN task's prompt and
+    silently weaken the signal; every row is checked and the mismatch raises.
+    """
+    bs = soft_prompt.shape[0]
+    if bs < 2:
+        return soft_prompt.new_zeros(()), soft_prompt.new_zeros(())
+
+    rolled = soft_prompt.roll(shift, dims=0)
+    embs = batch["task_embs"]
+    same = (embs == embs.roll(shift, dims=0)).flatten(1).all(dim=1)
+    if bool(same.any()):
+        raise RuntimeError(
+            f"contrastive_task_loss: {int(same.sum())} of {bs} rows kept their own "
+            f"task after roll({shift}). The batch groups n_points_per_task rows per "
+            f"task, so shift must be a multiple of it and n_tasks_per_batch must be "
+            f">= 2. Those rows would contribute a mismatched loss that is not "
+            f"mismatched, which reads as 'the term is not working'."
+        )
+
+    inputs_embeds, attention_mask, labels = build_prompted_inputs(model, batch, rolled)
+    logits = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask).logits
+    mismatched = compute_loss(
+        labels, logits,
+        equally_weight_sample=equally_weight_sample,
+        label_smoothing=label_smoothing,
+    )
+    gap = mismatched - matched_loss
+    return torch.relu(torch.as_tensor(margin, device=gap.device) - gap), gap.detach()
+
+
 def get_loss_batch_inlet(
     batch,
     model,
@@ -51,6 +139,11 @@ def get_loss_batch_inlet(
     equally_weight_sample,
     l2_reg_prompt=0.0,
     label_smoothing=0.0,
+    prompt_diversity=0.0,
+    prompt_diversity_target=0.5,
+    contrastive=0.0,
+    contrastive_margin=0.5,
+    contrastive_shift=1,
     return_per_token_acc=False,
     return_entropy=False,
     override_prompt=None,
@@ -70,6 +163,16 @@ def get_loss_batch_inlet(
     if l2_reg_prompt:
         out["prompt_l2_loss"] = (soft_prompt.float() ** 2).mean() * l2_reg_prompt
 
+    zero = torch.zeros((), device=model.device)
+    out["prompt_diversity_loss"] = zero
+    out["contrastive_loss"] = zero
+    if prompt_diversity and override_prompt is None:
+        # `hypermod` may be a DDP wrapper; `base` lives on the module.
+        inner = getattr(hypermod, "module", hypermod)
+        hinge, vf = prompt_diversity_loss(soft_prompt, inner.base, prompt_diversity_target)
+        out["prompt_diversity_loss"] = hinge * prompt_diversity
+        out["varying_fraction"] = vf.detach()
+
     inputs_embeds, attention_mask, labels = build_prompted_inputs(model, batch, soft_prompt)
     outputs = model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
 
@@ -79,6 +182,16 @@ def get_loss_batch_inlet(
         equally_weight_sample=equally_weight_sample,
         label_smoothing=label_smoothing,
     )
+
+    if contrastive and override_prompt is None:
+        hinge, gap = contrastive_task_loss(
+            batch, model, soft_prompt, out["sft_loss"],
+            margin=contrastive_margin, shift=contrastive_shift,
+            equally_weight_sample=equally_weight_sample,
+            label_smoothing=label_smoothing,
+        )
+        out["contrastive_loss"] = hinge * contrastive
+        out["contrastive_gap"] = gap
 
     if return_per_token_acc or return_entropy:
         shift_logits = outputs.logits[..., :-1, :].contiguous()

@@ -1,0 +1,42 @@
+{
+  "task": "lol_047",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_047": {
+      "zero_prompt": {
+        "rouge1_precision": 0.16818383141912552,
+        "rouge1_recall": 0.6923076923076923,
+        "rouge1_fmeasure": 0.2517573660686362,
+        "rougeL_precision": 0.16818383141912552,
+        "rougeL_recall": 0.6923076923076923,
+        "rougeL_fmeasure": 0.2517573660686362
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 26,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 26,
+      "chars_mean": 92.0,
+      "chars_median": 30,
+      "chars_p90": 243,
+      "words_mean": 16.0,
+      "words_median": 6,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.6538,
+      "examples": [
+        "B. Wear safety goggles.",
+        "I don't know. (E)\n\nThe given options do not include the tool typically used to measure the volume of irregularly shaped objects like a rock, which is a volumetric flask or a graduated bucket."
+      ]
+    }
+  }
+}

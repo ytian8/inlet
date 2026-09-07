@@ -1,0 +1,42 @@
+{
+  "task": "lol_594",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_594": {
+      "zero_prompt": {
+        "rouge1_precision": 0.40628600901334677,
+        "rouge1_recall": 0.5536577703030491,
+        "rouge1_fmeasure": 0.4489762422510962,
+        "rougeL_precision": 0.32217420069515496,
+        "rougeL_recall": 0.4447363761674646,
+        "rougeL_fmeasure": 0.3581635651671496
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 650,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 650,
+      "chars_mean": 108.4,
+      "chars_median": 102,
+      "chars_p90": 162,
+      "words_mean": 18.1,
+      "words_median": 17,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0477,
+      "examples": [
+        "What is the direction of the applied force in a wheel and axle system, regardless of whether it is applied to the wheel or the axle?",
+        "What process leads to the development of new species by favoring the survival and reproduction of organisms with advantageous heritable traits?"
+      ]
+    }
+  }
+}

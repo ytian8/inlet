@@ -1,0 +1,42 @@
+{
+  "task": "lol_107",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_107": {
+      "zero_prompt": {
+        "rouge1_precision": 0.5529256077808258,
+        "rouge1_recall": 0.6207891641812511,
+        "rouge1_fmeasure": 0.5193919602585001,
+        "rougeL_precision": 0.5117527593531314,
+        "rougeL_recall": 0.5768164763058659,
+        "rougeL_fmeasure": 0.48289557658539406
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 204,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 204,
+      "chars_mean": 181.9,
+      "chars_median": 125,
+      "chars_p90": 358,
+      "words_mean": 26.8,
+      "words_median": 17,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.1863,
+      "examples": [
+        "SELECT actors.name AS character_name, films.duration\nFROM actors\nJOIN films_actors ON actors.id = films_actors.actor_id\nJOIN films ON films_actors.film_id = films.id;",
+        "SELECT name \nFROM Songs \nWHERE genre IN ('modern') \nOR language = 'English';"
+      ]
+    }
+  }
+}

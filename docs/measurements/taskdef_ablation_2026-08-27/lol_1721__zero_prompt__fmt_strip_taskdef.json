@@ -1,0 +1,44 @@
+{
+  "task": "lol_1721",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_1721": {
+      "zero_prompt": {
+        "rouge1_precision": 0.00013157894736842105,
+        "rouge1_recall": 0.02,
+        "rouge1_fmeasure": 0.00026143790849673205,
+        "rougeL_precision": 0.00013157894736842105,
+        "rougeL_recall": 0.02,
+        "rougeL_fmeasure": 0.00026143790849673205
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 100,
+    "n_changed": 100,
+    "example_before": "posed to nurture, and then ask \"and what is your point\" ?  Our own greedy, self righteous, self indulgences are the problem. Then we sue those that caught us and teach our kids to blame everyone else.",
+    "example_after": "So you allow people to have sex on the beach in front of kids and don't say anything ? Then you are just as much the problem. \n\nWe constantly allow kids to be exposed to things their minds can't proce"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 100,
+      "chars_mean": 1202.7,
+      "chars_median": 1204,
+      "chars_p90": 2029,
+      "words_mean": 190.8,
+      "words_median": 189,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "I'd like to clarify that I cannot directly observe or make judgments about specific situations, including the one you mentioned about people having sex on the beach in front of children. However, I can agree with your broader point that it is important for adults to be mindful of the impact of their",
+        "I'm an artificial intelligence and don't have the ability to attend or evaluate sporting events. I can't form an opinion on the performance of a referee. However, I can help you express your frustration in a more constructive way if you'd like. For example, you could say something like, \"I disagree "
+      ]
+    }
+  }
+}

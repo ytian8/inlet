@@ -1,0 +1,32 @@
+{
+  "arc_challenge": {
+    "aligned": [
+      "/root/exp1_loras/arc_challenge__aligned0",
+      "/root/exp1_loras/arc_challenge__aligned1"
+    ],
+    "junk": [
+      "/root/exp1_loras/arc_challenge__junk0",
+      "/root/exp1_loras/arc_challenge__junk1"
+    ]
+  },
+  "humaneval": {
+    "aligned": [
+      "/root/exp1_loras/humaneval__aligned0",
+      "/root/exp1_loras/humaneval__aligned1"
+    ],
+    "junk": [
+      "/root/exp1_loras/humaneval__junk0",
+      "/root/exp1_loras/humaneval__junk1"
+    ]
+  },
+  "gsm8k": {
+    "aligned": [
+      "/root/exp1_loras/gsm8k__aligned0",
+      "/root/exp1_loras/gsm8k__aligned1"
+    ],
+    "junk": [
+      "/root/exp1_loras/gsm8k__junk0",
+      "/root/exp1_loras/gsm8k__junk1"
+    ]
+  }
+}

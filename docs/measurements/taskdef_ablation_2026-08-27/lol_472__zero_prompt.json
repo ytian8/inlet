@@ -1,0 +1,42 @@
+{
+  "task": "lol_472",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_472": {
+      "zero_prompt": {
+        "rouge1_precision": 0.04602304891417675,
+        "rouge1_recall": 0.6869712351945855,
+        "rouge1_fmeasure": 0.07308759955357234,
+        "rougeL_precision": 0.04602304891417675,
+        "rougeL_recall": 0.6869712351945855,
+        "rougeL_fmeasure": 0.07308759955357234
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 591,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 591,
+      "chars_mean": 180.0,
+      "chars_median": 142,
+      "chars_p90": 280,
+      "words_mean": 34.4,
+      "words_median": 28,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0745,
+      "examples": [
+        "No.\n\nLotion is a type of substance used for moisturizing or protecting the skin, while infrared light is a type of electromagnetic radiation. They are not related as a meronym and holonym.",
+        "Entity 2 (light, crust) are not parts of Entity 1 (plate). A plate is a flat dish or other shallow container, and neither light nor crust are parts of it. Light can be present above a plate, and crust is a part of some types of food that can be served on a plate, but they are not parts of the plate "
+      ]
+    }
+  }
+}

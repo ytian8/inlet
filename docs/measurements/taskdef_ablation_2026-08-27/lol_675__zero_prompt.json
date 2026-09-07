@@ -1,0 +1,42 @@
+{
+  "task": "lol_675",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_675": {
+      "zero_prompt": {
+        "rouge1_precision": 0.1753312727436811,
+        "rouge1_recall": 0.8789497888291252,
+        "rouge1_fmeasure": 0.28364724372207417,
+        "rougeL_precision": 0.1702519445886744,
+        "rougeL_recall": 0.8567238784621892,
+        "rougeL_fmeasure": 0.27552219559338703
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 234,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 234,
+      "chars_mean": 274.5,
+      "chars_median": 200,
+      "chars_p90": 534,
+      "words_mean": 46.9,
+      "words_median": 36,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0085,
+      "examples": [
+        "Big question: What is the biggest synagogue in the world?\n\nQueries:\n1. Biggest synagogue in the world ?\n2. How many electoral votes does Romney win in Texas ?\n3. Why is flame test useful ?\n4. What are the different types of fire ?\n\nAnswer: 1. What is the biggest synagogue in the world?\n\nExplanation:",
+        "Who invented the cotton gin, and in what year?\nHow much does a Marta bus driver make?\nWhat is Pete Wentz's favorite color?\nWhich element is the most radioactive?"
+      ]
+    }
+  }
+}

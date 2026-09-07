@@ -1,0 +1,44 @@
+{
+  "task": "lol_675",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_675": {
+      "zero_prompt": {
+        "rouge1_precision": 0.026004294937398566,
+        "rouge1_recall": 0.7332297262538591,
+        "rouge1_fmeasure": 0.04986007230138641,
+        "rougeL_precision": 0.021882624906217108,
+        "rougeL_recall": 0.6208009199336499,
+        "rougeL_fmeasure": 0.0419743136844647
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 234,
+    "n_changed": 234,
+    "example_before": "ease complete the task without any explanation.\n\nBiggest synagogue in the world ?\nHow many electoral votes does Romney win in Texas ?\nWhy is flame test useful ?\nWhat are the differemnt types of fire ?",
+    "example_after": "Biggest synagogue in the world ?\nHow many electoral votes does Romney win in Texas ?\nWhy is flame test useful ?\nWhat are the differemnt types of fire ?"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 234,
+      "chars_mean": 1457.3,
+      "chars_median": 1455,
+      "chars_p90": 2077,
+      "words_mean": 239.5,
+      "words_median": 237,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "1. The biggest synagogue in the world is the Great Synagogue of Jerusalem, located in Israel. It is the largest Jewish house of worship in terms of capacity, with a seating capacity of around 3,000 people.\n2. In the 2012 US Presidential Election, Romney won all 32 electoral votes in the state of Tex",
+        "1. The cotton gin was invented by Eli Whitney in the year 1793.\n2. The salary for a MARTA bus driver in Atlanta, Georgia, varies depending on their experience and the number of hours worked. According to Glassdoor, the average base salary for a MARTA bus driver is around $33,000 per year.\n3. Pete We"
+      ]
+    }
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "task": "lol_1721",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_1721": {
+      "zero_prompt": {
+        "rouge1_precision": 0.47572961340806363,
+        "rouge1_recall": 0.57,
+        "rouge1_fmeasure": 0.48074556699556703,
+        "rougeL_precision": 0.47572961340806363,
+        "rougeL_recall": 0.57,
+        "rougeL_fmeasure": 0.48074556699556703
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 100,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 100,
+      "chars_mean": 25.2,
+      "chars_median": 3,
+      "chars_p90": 115,
+      "words_mean": 4.6,
+      "words_median": 1,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.83,
+      "examples": [
+        "No. The comment does not contain any obscene language. It is a critical commentary on societal issues and behavior.",
+        "No. The comment is not obscene. It is an expression of displeasure towards a referee's performance."
+      ]
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "task": "gsm8k",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0,
+    "synthetic_vocab": 32,
+    "synthetic_gauss": 32
+  },
+  "results": {
+    "gsm8k": {
+      "zero_prompt": {
+        "acc": 0.43669446550416985
+      },
+      "synthetic_vocab": {
+        "acc": 0.43745261561789234
+      },
+      "synthetic_gauss": {
+        "acc": 0.34040940106141016
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "add",
+    "n_samples": 1319,
+    "n_changed": 1319,
+    "example_before": "bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?\n\n",
+    "example_after": "Please complete the task without any explanation.\n\nPlease answer the following question: Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 1319,
+      "chars_mean": 615.0,
+      "chars_median": 566,
+      "chars_p90": 944,
+      "words_mean": 122.7,
+      "words_median": 114,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet's ducks lay 16 eggs per day.\n2. She uses 3 for breakfast and 4 for baking muffins, so she sells the remaining eggs.\n3. She sells each egg for $2.\n\nFirst, let's find out how many eggs she sells:\nTotal eggs laid = 16\nEggs used for breakfast and baking = 3 (for breakfast) + 4 (for muffins) =",
+        "The robe requires 2 bolts of blue fiber and half that amount of white fiber. Half of 2 is 1, so the robe needs 1 bolt of white fiber in addition to 2 bolts of blue fiber. Therefore, the total number of bolts required is 2 (blue) + 1 (white) = 3 bolts."
+      ]
+    },
+    "synthetic_vocab": {
+      "n": 1319,
+      "chars_mean": 588.3,
+      "chars_median": 529,
+      "chars_p90": 945,
+      "words_mean": 117.8,
+      "words_median": 107,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet has 16 eggs laid by her ducks every day.\n2. She uses 3 eggs for breakfast and 4 eggs for baking muffins.\n3. So, she sells the remaining eggs at the farmers' market.\n\nFirst, let's find out how many eggs she sells:\n16 eggs (total) - 3 eggs (for breakfast) - 4 eggs (for baking muffins) = 9 e",
+        "The robe requires 2 bolts of blue fiber and half that amount of white fiber.\n\nFirst, let's find out how many bolts of white fiber are needed:\nHalf of the amount of blue fiber = 2 bolts (blue fiber) / 2 = 1 bolt (blue fiber)\nSo, the robe requires 1 bolt of white fiber.\n\nNow, we can calculate the tota"
+      ]
+    },
+    "synthetic_gauss": {
+      "n": 1319,
+      "chars_mean": 589.3,
+      "chars_median": 540,
+      "chars_p90": 943,
+      "words_mean": 117.6,
+      "words_median": 107,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet lays 16 eggs per day.\n2. She uses 3 eggs for breakfast and 4 eggs for making muffins, so she sells the remaining eggs.\n3. She sells the eggs for $2 per egg.\n\nFirst, let's find out how many eggs she sells:\n\nTotal eggs laid = 16 eggs/day\nEggs used for breakfast and muffins = 3 + 4 = 7 eggs/",
+        "A robe takes 2 bolts of blue fiber. It also takes half that much white fiber. Half of 2 is 1 bolt. So, a robe takes 2 bolts of blue fiber and 1 bolt of white fiber in total."
+      ]
+    }
+  }
+}

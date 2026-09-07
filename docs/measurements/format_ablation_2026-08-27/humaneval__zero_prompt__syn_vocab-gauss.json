@@ -1,0 +1,76 @@
+{
+  "task": "humaneval",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0,
+    "synthetic_vocab": 32,
+    "synthetic_gauss": 32
+  },
+  "results": {
+    "humaneval": {
+      "zero_prompt": {
+        "humaneval_base_pass@1": 0.38414634146341464,
+        "humaneval_plus_pass@1": 0.3170731707317073
+      },
+      "synthetic_vocab": {
+        "humaneval_base_pass@1": 0.4024390243902439,
+        "humaneval_plus_pass@1": 0.3475609756097561
+      },
+      "synthetic_gauss": {
+        "humaneval_base_pass@1": 0.31097560975609756,
+        "humaneval_plus_pass@1": 0.25609756097560976
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 164,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 164,
+      "chars_mean": 884.3,
+      "chars_median": 864,
+      "chars_p90": 1364,
+      "words_mean": 144.1,
+      "words_median": 139,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n    for i in range(len(numbers)):\n        for j in range(i+1, len(numbers)):\n            if abs(numbers[i] - numbers[j]) <= threshold:\n                return True\n    return False\n```\nThis function uses two nested loops to compare each pair of numbers in the list. If it finds two numbers that are c",
+        "\n\n    def is_open_paren(char):\n        return char == '('\n\n    def is_close_paren(char):\n        return char == ')'\n\n    def get_next_paren(stack, index):\n        while stack and stack[-1] != '(' or index < len(paren_string) and paren_string[index] != '(':\n            if stack:\n                stack"
+      ]
+    },
+    "synthetic_vocab": {
+      "n": 164,
+      "chars_mean": 862.5,
+      "chars_median": 819,
+      "chars_p90": 1304,
+      "words_mean": 140.9,
+      "words_median": 133,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n    return any(abs(num1 - num2) < threshold for num1, num2 in pairwise(numbers))\n\nfrom itertools import pairwise\n```\n\nThis solution uses the `pairwise` function from the `itertools` module to iterate through pairs of numbers in the list, and checks if the absolute difference between each pair is le",
+        "\n    stack = []\n    result = []\n    index = 0\n    while index < len(paren_string):\n        if paren_string[index] == '(':\n            stack.append(paren_string[index])\n            index += 1\n        elif paren_string[index] == ')':\n            if not stack or stack.pop() != '(':\n                retu"
+      ]
+    },
+    "synthetic_gauss": {
+      "n": 164,
+      "chars_mean": 887.1,
+      "chars_median": 826,
+      "chars_p90": 1446,
+      "words_mean": 145.9,
+      "words_median": 136,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n    for i in range(len(numbers)):\n        for j in range(i+1, len(numbers)):\n            if abs(numbers[i] - numbers[j]) <= threshold:\n                return True\n    return False\n```\n\nThis function uses two nested loops to compare each pair of numbers in the list. The outer loop iterates through e",
+        "\n    stack = []\n    result = []\n    for char in paren_string:\n        if char == '(':\n            stack.append(char)\n        elif char == ')':\n            if not stack or stack.pop() != '(':\n                raise ValueError(\"Invalid parentheses string\")\n            result.append(''.join(stack))\n    "
+      ]
+    }
+  }
+}

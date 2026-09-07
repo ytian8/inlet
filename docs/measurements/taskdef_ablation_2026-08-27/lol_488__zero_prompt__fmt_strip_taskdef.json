@@ -1,0 +1,44 @@
+{
+  "task": "lol_488",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_488": {
+      "zero_prompt": {
+        "rouge1_precision": 0.03532237079784118,
+        "rouge1_recall": 0.7497442184842756,
+        "rouge1_fmeasure": 0.0660923485451009,
+        "rougeL_precision": 0.03344822946221934,
+        "rougeL_recall": 0.7197885840113156,
+        "rougeL_fmeasure": 0.06261850467009726
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 650,
+    "n_changed": 650,
+    "example_before": " as they appear in the list A. Do not change their case/capitalization. Please complete the task without any explanation.\n\n['8961', 'a', '7821', 'v', '8101', 'L', 'I', 'z', '5535', '8539', 'j', '757']",
+    "example_after": "['8961', 'a', '7821', 'v', '8101', 'L', 'I', 'z', '5535', '8539', 'j', '757']"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 650,
+      "chars_mean": 1025.4,
+      "chars_median": 1023,
+      "chars_p90": 1494,
+      "words_mean": 181.8,
+      "words_median": 178,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "This is a list of nine items. The items include six numbers: 8961, 7821, 8101, 5535, 8539, and 757. The remaining items are the letters 'a', 'L', 'I', 'j', and 'z'.\n\nHere's a possible way to sort this list:\n\n1. Sort the numbers in ascending order: 5535, 757, 8101, 8539, 8961.\n2. Sort the letters in ",
+        "This appears to be a list of characters, including some letters and some numbers. Here are a few things we can do with this list:\n\n1. We can print out the list as it is: [G, 6177, J, E, 2745, 8969, X, 7181, R, j, 3905, 815, 7413, Y]\n2. We can convert it to a string: \"G, 6177, J, E, 2745, 8969, X, 71"
+      ]
+    }
+  }
+}

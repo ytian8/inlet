@@ -1,0 +1,44 @@
+{
+  "task": "lol_107",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_107": {
+      "zero_prompt": {
+        "rouge1_precision": 0.05724645466295811,
+        "rouge1_recall": 0.4268908988194367,
+        "rouge1_fmeasure": 0.09514614801460279,
+        "rougeL_precision": 0.04502033404596998,
+        "rougeL_recall": 0.3488080540621399,
+        "rougeL_fmeasure": 0.07516572837223202
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 204,
+    "n_changed": 204,
+    "example_before": "ble WHERE attribute = 1, will select every column from rows with the attribute column equal to 1. Please complete the task without any explanation.\n\nReturn the characters and durations for each actor.",
+    "example_after": "Return the characters and durations for each actor."
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 204,
+      "chars_mean": 986.2,
+      "chars_median": 949,
+      "chars_p90": 1657,
+      "words_mean": 160.2,
+      "words_median": 155,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "I'd be happy to help you with that! However, I'll need some more context to provide you with the specific characters and durations for each actor that you have in mind. Here's some general information on how to find this information:\n\n1. To find the characters played by an actor, you can check their",
+        "I'd be happy to help you find some songs that fit the criteria of being in the modern genre and having English lyrics. Here are ten popular songs that match this description:\n\n1. \"Shape of You\" by Ed Sheeran\n2. \"Despacito (Remix)\" by Luis Fonsi ft. Daddy Yankee and Justin Bieber\n3. \"Uptown Funk\" by "
+      ]
+    }
+  }
+}

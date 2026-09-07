@@ -1,0 +1,42 @@
+{
+  "task": "lol_637",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_637": {
+      "zero_prompt": {
+        "rouge1_precision": 0.21890290963622247,
+        "rouge1_recall": 0.69523320370778,
+        "rouge1_fmeasure": 0.250698701682202,
+        "rougeL_precision": 0.2099037344026931,
+        "rougeL_recall": 0.6684398464059481,
+        "rougeL_fmeasure": 0.2404838733352786
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 649,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 649,
+      "chars_mean": 377.7,
+      "chars_median": 386,
+      "chars_p90": 804,
+      "words_mean": 66.9,
+      "words_median": 65,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.1587,
+      "examples": [
+        "[int(i) for i in set([int(j) if isinstance(j, int) else None) for j in ['i', '271', 'i', '177', '237', 'm', 'x'])]\n\n[1, 2, 3, 7]\n\nOr, using list comprehension and set:\n\n[int(i) for i in set(filter(lambda x: isinstance(x, int), ['i', '271', 'i', '177', '237', 'm', 'x']))]\n\nOr, using a for loop and se",
+        "[int(i) for i in set([int(j) if j.isdigit() else None for j in A]) if i is not None]\n\nThis list comprehension extracts the unique digits from the input list A, converts them to integers, adds them to a set to remove duplicates, and then converts the set back to a list before sorting it in ascending "
+      ]
+    }
+  }
+}

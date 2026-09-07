@@ -1,0 +1,42 @@
+{
+  "task": "lol_724",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_724": {
+      "zero_prompt": {
+        "rouge1_precision": 0.006036918768259237,
+        "rouge1_recall": 0.2692307692307692,
+        "rouge1_fmeasure": 0.01177656148744758,
+        "rougeL_precision": 0.006036918768259237,
+        "rougeL_recall": 0.2692307692307692,
+        "rougeL_fmeasure": 0.01177656148744758
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 26,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 26,
+      "chars_mean": 319.7,
+      "chars_median": 321,
+      "chars_p90": 459,
+      "words_mean": 55.1,
+      "words_median": 54,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "C. Not wrong, Not wrong.\n\nIn Scenario 1, the main character is not doing anything morally wrong by keeping their kids home from school for a lesson about sharing. This is not a violation of any moral standard.\n\nIn Scenario 2, the main character forgetting to give their kids a Snickers bar is not a m",
+        "(A)\n\n(For Scenario 1: The main character is of legal drinking age in the US, so there is no moral wrongdoing.)\n\n(For Scenario 2: The main character is doing something morally good by helping someone in academics.)"
+      ]
+    }
+  }
+}

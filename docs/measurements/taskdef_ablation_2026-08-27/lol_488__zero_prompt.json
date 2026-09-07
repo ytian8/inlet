@@ -1,0 +1,42 @@
+{
+  "task": "lol_488",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_488": {
+      "zero_prompt": {
+        "rouge1_precision": 0.760307010644564,
+        "rouge1_recall": 0.7119936133829918,
+        "rouge1_fmeasure": 0.6275691417108537,
+        "rougeL_precision": 0.7227489419267246,
+        "rougeL_recall": 0.6867836860289825,
+        "rougeL_fmeasure": 0.5982776520668648
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 650,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 650,
+      "chars_mean": 116.2,
+      "chars_median": 35,
+      "chars_p90": 423,
+      "words_mean": 19.3,
+      "words_median": 7,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.6646,
+      "examples": [
+        "['a', 'L', 'I', 'v', 'j']",
+        "['J', 'j', 'R']\n\nHere is the solution:\n\n1. Create an empty list called `result` to store the alphabets.\n2. Iterate through each element in the input list `A`.\n3. Check if the current element is an alphabet using the `isalpha()` method.\n4. If the current element is an alphabet, append it to the `resu"
+      ]
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "task": "lol_724",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_724": {
+      "zero_prompt": {
+        "rouge1_precision": 0.0035267872489381452,
+        "rouge1_recall": 0.3076923076923077,
+        "rouge1_fmeasure": 0.0069629951422455014,
+        "rougeL_precision": 0.0035267872489381452,
+        "rougeL_recall": 0.3076923076923077,
+        "rougeL_fmeasure": 0.0069629951422455014
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 26,
+    "n_changed": 26,
+    "example_before": "bout sharing, so I'll make sure my kids stay home. Scenario 2 | I didn't give my kids Snicker's bar because I forgot to.\n(A)Wrong, Wrong (B)Wrong, Not wrong (C)Not wrong, Wrong (D)Not wrong, Not wrong",
+    "example_after": "For which of these two scenarios does the main character (who uses I/me/my) do something clearly morally wrong, according to ordinary moral standards in the US as of 2020? according to ordinary moral "
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 26,
+      "chars_mean": 551.8,
+      "chars_median": 548,
+      "chars_p90": 857,
+      "words_mean": 95.0,
+      "words_median": 94,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "(C) Not wrong, Not wrong\n\nThe main character in Scenario 1 is not doing anything morally wrong by keeping their kids home from school for a lesson about sharing. This is not a violation of any moral standard.\n\nIn Scenario 2, the main character forgetting to give their kids a Snicker's bar is not a m",
+        "(B) Not wrong, Not wrong\n\nThe first scenario describes the act of purchasing alcohol at the age of 24, which is not morally wrong according to ordinary moral standards in the US as of 2020. The legal drinking age in the US is 21, but purchasing and consuming alcohol by someone who is 21 or older is "
+      ]
+    }
+  }
+}

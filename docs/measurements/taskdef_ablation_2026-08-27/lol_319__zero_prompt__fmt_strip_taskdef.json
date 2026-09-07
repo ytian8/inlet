@@ -1,0 +1,44 @@
+{
+  "task": "lol_319",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_319": {
+      "zero_prompt": {
+        "rouge1_precision": 0.0005605758869425807,
+        "rouge1_recall": 0.0625,
+        "rouge1_fmeasure": 0.0011068134141102623,
+        "rougeL_precision": 0.0005605758869425807,
+        "rougeL_recall": 0.0625,
+        "rougeL_fmeasure": 0.0011068134141102623
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 248,
+    "n_changed": 248,
+    "example_before": "are unrelated if there is no relevance between them. Please complete the task without any explanation.\n\nTarget: commander \nOur neighbor is a Navy commander. She is athletic and a stickler for details.",
+    "example_after": "Target: commander \nOur neighbor is a Navy commander. She is athletic and a stickler for details."
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 248,
+      "chars_mean": 833.4,
+      "chars_median": 661,
+      "chars_p90": 1773,
+      "words_mean": 137.0,
+      "words_median": 105,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0081,
+      "examples": [
+        "Subject: Greetings, Commander [Neighbor's Name]\n\nDear Commander [Neighbor's Name],\n\nI hope this message finds you well. I wanted to take a moment to introduce myself and welcome you to the neighborhood. I've heard through the grapevine that you've recently taken up residence here, and I'm excited to",
+        "It seems like you're describing Karen as an assistant who not only helps her boss effectively in their job but also exhibits a friendly and kind demeanor. Assistants play a crucial role in supporting their colleagues or superiors by managing tasks, organizing schedules, and providing administrative "
+      ]
+    }
+  }
+}

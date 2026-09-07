@@ -1,0 +1,74 @@
+{
+  "arc_easy": {
+    "aligned": [
+      "/root/exp3_loras/arc_easy__aligned0",
+      "/root/exp3_loras/arc_easy__aligned1",
+      "/root/exp3_loras/arc_easy__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/arc_easy__junk0",
+      "/root/exp3_loras/arc_easy__junk1",
+      "/root/exp3_loras/arc_easy__junk2"
+    ]
+  },
+  "boolq": {
+    "aligned": [
+      "/root/exp3_loras/boolq__aligned0",
+      "/root/exp3_loras/boolq__aligned1",
+      "/root/exp3_loras/boolq__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/boolq__junk0",
+      "/root/exp3_loras/boolq__junk1",
+      "/root/exp3_loras/boolq__junk2"
+    ]
+  },
+  "openbookqa": {
+    "aligned": [
+      "/root/exp3_loras/openbookqa__aligned0",
+      "/root/exp3_loras/openbookqa__aligned1",
+      "/root/exp3_loras/openbookqa__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/openbookqa__junk0",
+      "/root/exp3_loras/openbookqa__junk1",
+      "/root/exp3_loras/openbookqa__junk2"
+    ]
+  },
+  "piqa": {
+    "aligned": [
+      "/root/exp3_loras/piqa__aligned0",
+      "/root/exp3_loras/piqa__aligned1",
+      "/root/exp3_loras/piqa__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/piqa__junk0",
+      "/root/exp3_loras/piqa__junk1",
+      "/root/exp3_loras/piqa__junk2"
+    ]
+  },
+  "winogrande": {
+    "aligned": [
+      "/root/exp3_loras/winogrande__aligned0",
+      "/root/exp3_loras/winogrande__aligned1",
+      "/root/exp3_loras/winogrande__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/winogrande__junk0",
+      "/root/exp3_loras/winogrande__junk1",
+      "/root/exp3_loras/winogrande__junk2"
+    ]
+  },
+  "hellaswag": {
+    "aligned": [
+      "/root/exp3_loras/hellaswag__aligned0",
+      "/root/exp3_loras/hellaswag__aligned1",
+      "/root/exp3_loras/hellaswag__aligned2"
+    ],
+    "junk": [
+      "/root/exp3_loras/hellaswag__junk0",
+      "/root/exp3_loras/hellaswag__junk1",
+      "/root/exp3_loras/hellaswag__junk2"
+    ]
+  }
+}

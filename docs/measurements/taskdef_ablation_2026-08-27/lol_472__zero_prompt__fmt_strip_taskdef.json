@@ -1,0 +1,44 @@
+{
+  "task": "lol_472",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_472": {
+      "zero_prompt": {
+        "rouge1_precision": 0.0009869557982290478,
+        "rouge1_recall": 0.12351945854483926,
+        "rouge1_fmeasure": 0.0019567251316760337,
+        "rougeL_precision": 0.0009869557982290478,
+        "rougeL_recall": 0.12351945854483926,
+        "rougeL_fmeasure": 0.0019567251316760337
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 591,
+    "n_changed": 591,
+    "example_before": "erms, a meronym (i.e., second entity) is in a part-of relationship with its holonym (i.e., first entity). Please complete the task without any explanation.\n\nEntity 1: lotion \n Entity 2: infrared light",
+    "example_after": "Entity 1: lotion \n Entity 2: infrared light"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 591,
+      "chars_mean": 719.3,
+      "chars_median": 664,
+      "chars_p90": 1105,
+      "words_mean": 120.1,
+      "words_median": 113,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "Lotion is a type of topical preparation that is applied to the skin for various purposes, such as moisturizing, protecting, or treating specific skin conditions. Infrared light, on the other hand, is a type of electromagnetic radiation with wavelengths longer than those of visible light. It is often",
+        "Entity 1, \"plate,\" is an inanimate object typically used for serving or eating food. It can be made of various materials such as glass, ceramic, or metal.\n\nEntity 2, \"light\" and \"crust,\" are two distinct concepts.\n\nEntity 2, \"light,\" is a form of electromagnetic radiation that is visible to the huma"
+      ]
+    }
+  }
+}

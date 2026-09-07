@@ -1,0 +1,78 @@
+{
+  "task": "humaneval",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0,
+    "synthetic_vocab": 32,
+    "synthetic_gauss": 32
+  },
+  "results": {
+    "humaneval": {
+      "zero_prompt": {
+        "humaneval_base_pass@1": 0.36585365853658536,
+        "humaneval_plus_pass@1": 0.31097560975609756
+      },
+      "synthetic_vocab": {
+        "humaneval_base_pass@1": 0.3597560975609756,
+        "humaneval_plus_pass@1": 0.3048780487804878
+      },
+      "synthetic_gauss": {
+        "humaneval_base_pass@1": 0.31097560975609756,
+        "humaneval_plus_pass@1": 0.2682926829268293
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "add",
+    "n_samples": 164,
+    "n_changed": 164,
+    "example_before": "o numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n```",
+    "example_after": "Please complete the task without any explanation.\n\nWrite a solution to the following problem:\n```python\nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 164,
+      "chars_mean": 499.6,
+      "chars_median": 463,
+      "chars_p90": 980,
+      "words_mean": 80.2,
+      "words_median": 75,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0793,
+      "examples": [
+        "\n    return any(abs(num1 - num2) < threshold for num1, num2 in pairwise(numbers))\n\nfrom itertools import pairwise\n```\n\nThis solution uses the `pairwise` function from `itertools` to compare each pair of numbers in the list with the given threshold. The `any` function returns `True` if at least one o",
+        "\n\n    stack = []\n    result = []\n    index = 0\n\n    while index < len(paren_string):\n        if paren_string[index] == '(':\n            stack.append(index)\n        elif paren_string[index] == ')':\n            if not stack or stack.pop() != index - 1:\n                return []\n            start = sta"
+      ]
+    },
+    "synthetic_vocab": {
+      "n": 164,
+      "chars_mean": 495.0,
+      "chars_median": 487,
+      "chars_p90": 928,
+      "words_mean": 78.7,
+      "words_median": 81,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0793,
+      "examples": [
+        "\n    return any(abs(num1 - num2) < threshold for num1, num2 in pairwise(numbers))\n\nfrom itertools import pairwise\n```\nThis solution uses the `pairwise` function from the `itertools` module to iterate through pairs of numbers in the list and checks if the absolute difference between each pair is less",
+        "\n    stack = []\n    result = []\n    index = 0\n    while index < len(paren_string):\n        if paren_string[index] == '(':\n            stack.append(paren_string[index])\n            index += 1\n        elif paren_string[index] == ')':\n            if not stack or stack.pop() != '(':\n                retu"
+      ]
+    },
+    "synthetic_gauss": {
+      "n": 164,
+      "chars_mean": 691.3,
+      "chars_median": 634,
+      "chars_p90": 1076,
+      "words_mean": 114.1,
+      "words_median": 104,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0061,
+      "examples": [
+        "\n    for i in range(len(numbers)):\n        for j in range(i+1, len(numbers)):\n            if abs(numbers[i] - numbers[j]) <= threshold:\n                return True\n    return False\n```\n\nThis function uses two nested loops to compare each pair of numbers in the list with a given threshold. If it find",
+        "\n    stack = []\n    result = []\n    for char in paren_string:\n        if char == '(':\n            stack.append(char)\n        elif char == ')':\n            if not stack or stack.pop() != '(':\n                raise ValueError(\"Invalid parentheses string\")\n            result.append(''.join(stack))\n    "
+      ]
+    }
+  }
+}

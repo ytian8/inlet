@@ -1,0 +1,44 @@
+{
+  "task": "lol_637",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_637": {
+      "zero_prompt": {
+        "rouge1_precision": 0.018712702107356066,
+        "rouge1_recall": 0.556272164746741,
+        "rouge1_fmeasure": 0.03587665094604626,
+        "rougeL_precision": 0.01779911917818029,
+        "rougeL_recall": 0.5340474967593611,
+        "rougeL_fmeasure": 0.03413734526726179
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 649,
+    "n_changed": 649,
+    "example_before": "and sort the unique digits used in the list in ascending order. Return -1 if there is no digit in the list. Please complete the task without any explanation.\n\n['i', '271', 'i', '177', '237', 'm', 'x']",
+    "example_after": "['i', '271', 'i', '177', '237', 'm', 'x']"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 649,
+      "chars_mean": 975.2,
+      "chars_median": 957,
+      "chars_p90": 1501,
+      "words_mean": 176.6,
+      "words_median": 176,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "It looks like you have given me a list of six characters. Here is some information about each character:\n\n- 'i': This is a lowercase letter i. In the English alphabet, it is the ninth letter and it has a value of 97 in ASCII.\n- '271': This is not a valid character in the ASCII table. ASCII values ra",
+        "It appears you have given me a list of characters and numbers. Here are some possible ways to analyze or manipulate this data:\n\n1. Count the number of elements in the list:\n   The length of the list is `len(my_list) = 8`.\n\n2. Check if a specific character is in the list:\n   Let's say we want to chec"
+      ]
+    }
+  }
+}

@@ -133,6 +133,37 @@ class InletArguments(TrainingArguments):
     # does not beat this, the generator is not reading descriptions.
     freeze_head: bool = False
     l2_reg_prompt: float = 0.0
+    # ---- anti-collapse -------------------------------------------------
+    # The 147.5k-step run ended with cos(real description, junk) = 0.9999 and a
+    # random-description control worth +0.41 pt: textbook `representation
+    # collapse` (Hyper-DFS App. B.2 -- "the hypernetwork may learn to produce
+    # nearly identical parameters regardless of the conditioning input,
+    # rendering the conditioning redundant"). Plain SFT rewards nothing for
+    # telling two descriptions apart, so the constant is optimal.
+    #
+    # `prompt_diversity` is a bounded hinge pushing `varying_fraction` -- the
+    # exact number probe_prompt.py prints, 5.4% on that run -- up to
+    # `prompt_diversity_target`. Free: the spread comes from the batch the SFT
+    # term already ran.
+    prompt_diversity: float = 0.0
+    prompt_diversity_target: float = 0.5
+    # `contrastive` asks for more: that a description's prompt beat a
+    # neighbour's ON ITS OWN TASK, which is what the random-description control
+    # measures. COSTS A SECOND FORWARD+BACKWARD (~2x step time).
+    # `contrastive_shift` must be a multiple of n_points_per_task; every row is
+    # checked and a row that kept its own task raises.
+    contrastive: float = 0.0
+    contrastive_margin: float = 0.5
+    contrastive_shift: int = 1
+    # Freeze `base` at its vocab init. P = base + head(.)*emb_rms, and
+    # varying_fraction 5.4% means the head output is 5.4% the size of `base`:
+    # the free constant absorbs everything task-agnostic. Frozen, the head has
+    # to carry it. Note freeze_head is the opposite control, not the opposite
+    # flag -- setting both trains nothing.
+    freeze_base: bool = False
+    # Remove {task_def} from the training prompt so the task can only
+    # arrive through the soft prompt, as it must at eval. See below.
+    strip_taskdef_in_training: bool = False
     # Stop after this many optimizer steps regardless of `epochs`. 0 = disabled.
     # Use it for smoke runs and for "give me a signal in 6 hours" runs; leave it
     # at 0 to reproduce the T2L recipe faithfully.
@@ -646,6 +677,40 @@ def main(args):
             )
 
     train_metadata = get_metadata(args.train_ds_names, args.use_per_task_emb)
+    if args.strip_taskdef_in_training:
+        # Upstream trains on LOL_TEMPLATE = "{task_def}\n\n{problem}", and
+        # `task_def` is the whole "Definition: ..." paragraph -- a complete spec
+        # of the task, in the LM's own context, on all 479 training tasks.
+        # lol_751's says "only use subtraction", which no model infers from the
+        # word problem. Measured on a frozen Mistral over ten lol_* tasks,
+        # removing it costs 20+ rougeL (28.37 -> 4.64): that is how much of the
+        # task the text channel delivers for free, and therefore how little is
+        # left worth conditioning on. None of the ten benchmark templates carries
+        # a task spec, so at eval the prompt is the ONLY channel -- the generator
+        # is trained where it is redundant and deployed where it is load-bearing.
+        #
+        # The transformed-dataset cache is keyed on a hash of this metadata, so
+        # the two settings cannot collide on disk.
+        n_stripped = 0
+        for _ds, _md in train_metadata.items():
+            tpl = _md.get("user_prompt_template", "")
+            if "{task_def}" in tpl:
+                # Keep everything after the definition. The template is
+                # "{task_def}\n\n{problem}"; splitting on the blank line stays
+                # honest if upstream ever adds a third field.
+                _md["user_prompt_template"] = tpl.split("\n\n", 1)[1]
+                n_stripped += 1
+        if n_stripped == 0:
+            raise RuntimeError(
+                "--strip_taskdef_in_training changed 0 of "
+                f"{len(train_metadata)} training templates. None contains "
+                "'{task_def}', so this flag would silently train the unmodified "
+                "recipe and the run would look like a successful ablation."
+            )
+        if is_main:
+            logger.info("[taskdef] removed the task definition from %d/%d training "
+                        "prompts; the description is now the only channel",
+                        n_stripped, len(train_metadata))
     val_metadata = get_metadata(args.eval_ds_info, args.use_per_task_emb)
 
     # ---------------------------------------------------------------------
@@ -760,9 +825,18 @@ def main(args):
         cond=args.cond,
         n_cross_layers=args.n_cross_layers,
         n_cross_heads=args.n_cross_heads,
+        learnable_base=not args.freeze_base,
     ).to(device)
     hypermod.fit_output_scale(emb_w)
     hypermod.init_base_from_vocab(emb_w, seed=args.base_init_seed)
+
+    if args.freeze_base and args.freeze_head:
+        raise SystemExit(
+            "--freeze_base and --freeze_head together leave nothing trainable: "
+            "freeze_head is the base-only control, freeze_base is its opposite."
+        )
+    if args.freeze_base and is_main:
+        logger.info("[base] frozen at its vocab init; the head carries the whole prompt")
 
     if args.freeze_head:
         # whitelist by PARAMETER NAME. Freezing module-by-module missed
@@ -888,6 +962,11 @@ def main(args):
             batch, model=model, hypermod=module,
             equally_weight_sample=args.equally_weight_sample,
             l2_reg_prompt=args.l2_reg_prompt,
+            prompt_diversity=args.prompt_diversity,
+            prompt_diversity_target=args.prompt_diversity_target,
+            contrastive=args.contrastive,
+            contrastive_margin=args.contrastive_margin,
+            contrastive_shift=args.contrastive_shift,
             label_smoothing=args.label_smoothing,
             **kw,
         )
@@ -982,7 +1061,8 @@ def main(args):
         for batch in train_dataloader:
             with accelerator.accumulate(hypermod), accelerator.autocast():
                 info = loss_fn(batch)
-                loss = info["sft_loss"] + info["prompt_l2_loss"]
+                loss = (info["sft_loss"] + info["prompt_l2_loss"]
+                        + info["prompt_diversity_loss"] + info["contrastive_loss"])
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:
                     grad_norm = accelerator.clip_grad_norm_(
@@ -1005,9 +1085,17 @@ def main(args):
             curstep += 1
             if is_main:
                 pbar.update(1)
-                pbar.set_description(f"loss {float(info['sft_loss']):.4f} "
-                                     f"|P| {float(info['prompt_norm']):.2f} "
-                                     f"sd {float(info['prompt_std_across_batch']):.3f}")
+                # varying_fraction is the 2x2's read-out: probe_prompt reports
+                # the same quantity, 5.4% on the 147.5k run. Show it live so a
+                # collapsed arm is obvious without waiting for an eval.
+                _desc = (f"loss {float(info['sft_loss']):.4f} "
+                         f"|P| {float(info['prompt_norm']):.2f} "
+                         f"sd {float(info['prompt_std_across_batch']):.3f}")
+                if "varying_fraction" in info:
+                    _desc += f" vf {float(info['varying_fraction']):.3f}"
+                if "contrastive_gap" in info:
+                    _desc += f" gap {float(info['contrastive_gap']):+.3f}"
+                pbar.set_description(_desc)
 
             if curstep % args.logging_freq == 0 or curstep == num_training_steps:
                 logged = {k: sum(v) / len(v) for k, v in avg.items() if v}

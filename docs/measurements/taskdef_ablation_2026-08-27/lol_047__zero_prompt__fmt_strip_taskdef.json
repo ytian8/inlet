@@ -1,0 +1,44 @@
+{
+  "task": "lol_047",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": null,
+  "n_virtual_tokens": {
+    "zero_prompt": 0
+  },
+  "results": {
+    "lol_047": {
+      "zero_prompt": {
+        "rouge1_precision": 0.033577892419145355,
+        "rouge1_recall": 0.9615384615384616,
+        "rouge1_fmeasure": 0.05378455600910996,
+        "rougeL_precision": 0.033577892419145355,
+        "rougeL_recall": 0.9615384615384616,
+        "rougeL_fmeasure": 0.05378455600910996
+      }
+    }
+  },
+  "train_config": null,
+  "format_instruction": {
+    "mode": "strip_taskdef",
+    "n_samples": 26,
+    "n_changed": 26,
+    "example_before": "anation.\n\nQuestion: To safely conduct an experiment using chemicals, what should students always do?  (A) Work in large groups. (B) Wear safety goggles. (C) Wear short sleeves. (D) Keep a window open?",
+    "example_after": "Question: To safely conduct an experiment using chemicals, what should students always do?  (A) Work in large groups. (B) Wear safety goggles. (C) Wear short sleeves. (D) Keep a window open?"
+  },
+  "completion_lengths": {
+    "zero_prompt": {
+      "n": 26,
+      "chars_mean": 430.7,
+      "chars_median": 444,
+      "chars_p90": 617,
+      "words_mean": 74.5,
+      "words_median": 79,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0385,
+      "examples": [
+        "The correct answer is: (B) Wear safety goggles.\n\nExplanation: When conducting experiments using chemicals, it is essential to prioritize safety. Wearing safety goggles is a crucial safety measure to protect the eyes from splashes, spills, or any potential chemical reactions that could cause harm. Wo",
+        "The best tool to measure the volume of a rock would be (C) a graduated cylinder with water. By submerging the rock in the graduated cylinder and measuring the change in water level, you can determine the volume of water displaced by the rock, which is equal to the volume of the rock."
+      ]
+    }
+  }
+}
