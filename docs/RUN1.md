@@ -1,0 +1,305 @@
+# Run 1 — the step/scale curve
+
+This is a complete, self-contained instruction for one training run and its
+evaluation. Follow it top to bottom. Everything it asks you to check exists
+because skipping it has produced a wrong number at least once.
+
+---
+
+## 1. What this run is for
+
+Inlet generates an **input-layer soft prompt** (32 vectors prepended to the
+embedded input) from a task description. T2L generates a **LoRA injected into
+every layer's q_proj/v_proj**. The paper's claim is about the interface: the
+input layer is the only substrate that can be delivered through a black-box
+embedding API, and we want to show it carries task adaptation about as well as
+per-layer weight injection.
+
+The blocker was that the generated prompt's **magnitude** grows during training
+until it destroys long-form generation. Measured on a 1000-step checkpoint:
+
+| | gsm8k | mbpp | humaneval | 5 multiple-choice | 8-task avg |
+|---|---|---|---|---|---|
+| frozen model | 39.95 | 42.86 | 39.63 | — | — |
+| inlet as trained | 28.51 | 7.77 | 18.29 | 67.96 | 49.29 |
+| inlet, prompt x0.5 | 42.00 | 45.61 | 42.07 | 67.71 | **58.53** |
+
+It is a length collapse: humaneval completions go from 18 words back to 131.
+Performance traces an inverted-U in prompt norm peaking near **0.11**, about
+0.7x a real token embedding (0.1543). Training overshoots it.
+
+**This run produces:** a step curve, a `prompt_norm` curve, and six checkpoints,
+so we can find where the scaled score peaks and how many steps we actually
+need. Report as "N steps", never rounded up.
+
+---
+
+## 2. Machine
+
+2x A100-80GB (or any 2 GPUs with 80GB). One GPU works too — pass `1` instead of
+`2` to `train.sh`; the global batch is pinned by `--global_tasks_per_step` so
+the result is the same, just slower (~4.5 s/step on 1 A100, ~2.2 s/step on 2).
+
+Disk: 60GB local for the venv and outputs, plus ~25GB for model and dataset
+caches.
+
+---
+
+## 3. Setup
+
+```bash
+git clone https://github.com/ytian8/inlet.git && cd inlet
+bash scripts/setup_env.sh                      # ~15 min, no GPU needed
+source .venv/bin/activate
+source scripts/common.sh
+```
+
+Then the model weights. **Three repos, not two:**
+
+```bash
+export HF_HOME=/path/on/a/big/disk/hf
+huggingface-cli download mistralai/Mistral-7B-Instruct-v0.2 \
+    --exclude "*.bin" "*.pth" "*.gguf" "*.msgpack" "*.h5"
+huggingface-cli download Alibaba-NLP/gte-large-en-v1.5
+huggingface-cli download Alibaba-NLP/new-impl        # <-- easy to miss
+```
+
+`gte-large-en-v1.5` loads with `trust_remote_code=True`, which fetches its code
+from the separate repo `Alibaba-NLP/new-impl`. Downloading the model alone is
+not enough to run offline; you get a `LocalEntryNotFoundError` from deep inside
+`transformers` that does not name the missing repo.
+
+Then the datasets:
+
+```bash
+tmux new -s warm
+WORKERS=4 ./scripts/warm_cache_paced.sh
+```
+
+**Use `warm_cache_paced.sh`, not `warm_cache.sh` directly.** The Hugging Face
+API allows 500 calls per 300 seconds and says so in its response headers
+(`RateLimit-Policy: "fixed window";"api";q=500;w=300`). `warm_datasets` does not
+back off: on HTTP 429 it records the dataset as failed and moves on, so one
+12-worker pass warms ~85 of 500 datasets and then "fails" the other 415 in a few
+seconds. Rerunning immediately fails all of them again. **This looks like a hard
+error and is not one.** The paced script loops `--only-failed` with the window
+slept out between passes; expect ~40 minutes and 7-8 passes.
+
+If it ends with `PACED_EXIT=2` (stalled), look at the two or three that are
+still failing before assuming a network problem. Last time both were debris
+from an earlier interrupted run: one half-written cache directory ("neither a
+`Dataset` nor a `DatasetDict`" — it had the `.arrow` file and no
+`dataset_info.json`) and one `.incomplete` blob that then failed with
+`PermissionError`. Deleting both and retrying warmed them in six seconds.
+
+### Pre-flight
+
+```bash
+./scripts/smoke.sh 1        # ~20 min. Do not skip.
+```
+
+It catches the class of bug this codebase actually has: runs that complete, show
+a falling loss, and report wrong numbers. Reference values from a known-good
+box, for comparison:
+
+```
+test_accum        9.070e-08     (known-bad ordering 3.1e-01)
+test_ddp_equiv    8.918e-08     (summed-instead-of-averaged 3.3e-01)
+gate_m0           |delta| = 0.000e+00
+peak GPU memory   14.58 GiB
+```
+
+---
+
+## 4. Datasets
+
+**Training — 479 tasks.** From `configs/hyper_lora_decontam_lol_tasks.yaml`,
+selected by `--n_train_ds=479` (already in the recipe, do not change it). These
+are Super-Natural-Instructions tasks from the `Lots-of-LoRAs` collection. T2L
+started from 500, held out 11 for validation, and **removed 10 for
+contamination with the evaluation benchmarks**, leaving 479. Using the same 479
+is what makes an Inlet number comparable to a T2L number.
+
+**Validation during training — four splits, automatic, nothing to pass:**
+
+| split | what it is |
+|---|---|
+| `val/seen` | 10 `lol_*` tasks that are in training |
+| `val/unseen` | 11 held-out `lol_*` tasks (task035, 039, 202, 304, 362, 614, 701, 706, 710, 726, 1557) |
+| `val/benchmark` | benchmark-derived |
+| `val/generative` | gsm8k `train` split |
+
+`val/generative` exists because upstream's three splits contain no long-form
+generation at all, which is why the collapse was invisible for 147,500 steps.
+
+**Final evaluation — the 10 benchmarks in T2L's Table 2**, in their order:
+
+```
+arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp humaneval
+```
+
+---
+
+## 5. Train
+
+```bash
+tmux new -s run1
+source .venv/bin/activate
+source scripts/common.sh
+export HF_HOME=/path/on/a/big/disk/hf
+
+VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
+./scripts/train.sh 2 --run_name=run1 \
+    --desc_slots=8 --cond=cross \
+    --model_select_split=val/unseen \
+    --max_steps=16000 \
+    --checkpoint_steps=500,1000,2000,4000,8000,16000 \
+    --val_freq=1000 \
+    --val_max_batches=15
+```
+
+~10 hours on 2x A100.
+
+**Every override must be `--key=value`.** Upstream's parser is not argparse; it
+builds its override dict as `arg.split("=")[1]`, so a bare `--freeze_head` or a
+space-separated `--max_steps 16000` raises `IndexError: list index out of range`
+in `configs.py` before training starts. Checking a flag against
+`HfArgumentParser` proves nothing — that is a different parser from the one
+`train_inlet.py` uses, and it accepts forms this one rejects.
+
+**Run it under tmux, not `nohup`.** `warm_cache.sh` spawns 12 workers and died
+silently at 19/500 when the ssh session that started it closed, leaving no error
+in the log.
+
+### Check these four lines, then leave it alone
+
+```
+LR: 2.500e-05 x ... = ...          -- independent of GPU count by construction
+NCCL collective timeout : 4:00:00  -- 0:10:00 means SIGABRT ~10 min in, no traceback
+val/generative: gsm8k[train]
+permanent checkpoints will be kept at steps: [500, 1000, 2000, 4000, 8000, 16000]
+[neftune] alpha=5.0 ACTIVE on Embedding    -- minutes in, after step-0 validation
+```
+
+### Watch for
+
+- **`CANARY:` warnings.** Free-running generation next to teacher forcing. Note
+  that the canary fires even at step 200 on an essentially untrained prompt, so
+  a fired canary is close to this model's baseline and is **not on its own**
+  evidence that anything broke. Only the trend against step count means
+  something.
+- **`prompt_std_across_batch` warnings** — the generator is emitting nearly the
+  same prompt for every description.
+- **`prompt_norm`** in the log, every 100 steps. This is the number the whole
+  run is about; expect it to start at 0.1543 and climb.
+
+If it hangs: `pgrep -f train_inlet`, then `kill -USR1 <pid>` for **every** rank.
+
+---
+
+## 6. Evaluate
+
+Six checkpoints x 10 tasks x several scales is too much to run blindly. Two
+stages.
+
+### Stage A — find the scale, on three tasks (~2-3 h)
+
+For each checkpoint, read its `prompt_norm` out of the training log and derive
+the sweep range. **The optimum is near norm 0.11**, so:
+
+```
+scale ≈ 0.11 / prompt_norm
+```
+
+A checkpoint at `prompt_norm` 0.2259 wants ~0.49; one at 0.4056 wants ~0.27.
+Sweep three values bracketing that estimate, e.g. `1.0,0.5,0.35`.
+
+```bash
+# read prompt_norm at, say, step 4000
+grep -ao "prompt_norm=[0-9.]*" /root/outputs/run1.train.log | sed -n '40p'
+
+CKPT=/root/outputs/hyper_lora/run1/hypermod_inlet_step4000.pt
+VLLM_ENABLE_V1_MULTIPROCESSING=0 \
+python -m inlet.eval_inlet \
+    --task gsm8k --tasks gsm8k humaneval arc_challenge \
+    --checkpoint $CKPT \
+    --prompt-scales 1.0,0.5,0.35 \
+    --max-eval-descs 1 --skip-random-descs \
+    --out-dir /root/outputs/eval_results_inlet
+```
+
+`--max-eval-descs 1 --skip-random-descs` makes this a **debug protocol**: one
+description, no junk-description controls. Numbers from it must never share a
+table with reported-protocol numbers, which average three descriptions and
+include the controls.
+
+Also get the zero-prompt reference once — it is the only number that says
+whether a prompt helps or hurts at all, and it validates the eval path:
+
+```bash
+python -m inlet.eval_inlet --task gsm8k --tasks gsm8k humaneval \
+    --zero-prompt --max-eval-descs 1 --skip-random-descs \
+    --out-dir /root/outputs/eval_results_inlet
+```
+
+Expect gsm8k ~39.95 and humaneval ~39.63 (published zero-shot: 40.71 / 37.80).
+**If these are far off, stop — the eval path is wrong and nothing downstream
+means anything.**
+
+### Stage B — full table at the chosen (checkpoint, scale) (~1.5 h)
+
+```bash
+python -m inlet.eval_inlet \
+    --task arc_challenge \
+    --tasks arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp humaneval \
+    --checkpoint $BEST_CKPT \
+    --prompt-scales $BEST_SCALE \
+    --max-eval-descs 1 --skip-random-descs \
+    --out-dir /root/outputs/eval_results_inlet
+```
+
+Then the **reported protocol** on the same checkpoint — three descriptions plus
+the junk-description controls, which is what goes in the paper:
+
+```bash
+./scripts/eval.sh $BEST_CKPT
+```
+
+### Two eval traps
+
+1. **Result filenames are built from the checkpoint's basename.** Two
+   checkpoints both called `hypermod_inlet.pt` (e.g. from different runs) write
+   the same `gsm8k__hypermod_inlet.json` and the last one wins. The step
+   checkpoints are fine (`..._step4000.pt` differs), but do not evaluate two
+   runs' final checkpoints into the same `--out-dir`. Each file records
+   `protocol.checkpoint`, so you can tell after the fact.
+2. **The eval re-runs per-task tokenisation for every scale.** boolq (3,270 long
+   passages) costs ~13 minutes *per scale* and hellaswag (10,042) far more.
+   Keep multi-scale sweeps to the three fast tasks; run the full 10 at a single
+   scale.
+
+---
+
+## 7. Send back
+
+- The four startup lines, verbatim.
+- `train_summary.json` and the full training log.
+- `prompt_norm` at each checkpoint step.
+- Every JSON under `eval_results_inlet/` (they are small).
+- Any `CANARY:` or `prompt_std_across_batch` warnings.
+- The Stage A table: checkpoint x scale x {gsm8k, humaneval, arc_challenge},
+  and the completion-length lines that `eval_inlet` prints next to each score —
+  `completions median N words` is the diagnostic the whole run turns on.
+
+## 8. The question this run answers
+
+Plot **scaled score against step count**.
+
+- Peaks at 2,000-4,000 and flattens → long training is unnecessary; report the
+  short run and say so.
+- Still climbing at 16,000 → the earlier "optimum before step 4,000" was an
+  artefact of the norm growing, and the fix moves the optimum later.
+
+Both outcomes are useful. Either way, `prompt_norm` against step count should
+be a clean monotone curve, and the scaled score should be far flatter than the
+unscaled one — that is the mechanism, stated as a prediction so it can fail.
