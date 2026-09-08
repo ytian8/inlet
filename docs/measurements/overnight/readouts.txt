@@ -1,0 +1,22 @@
+### ews  rc=0  5520s   flags: --equally_weight_sample=False
+  val/generative: [step 1000] val/generative: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0598 sft_loss=2.4458 per_token_acc=0.7649 prompt_norm=0.2276 prompt_std_across_batch=0.0001 free_running_acc=0.0052
+  val/unseen: [step 1000] val/unseen: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0941 sft_loss=2.4813 per_token_acc=0.7580 prompt_norm=0.2265 prompt_std_across_batch=0.0002 free_running_acc=0.0893
+  val/benchmark: [step 1000] val/benchmark: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0866 sft_loss=1.9443 per_token_acc=0.7958 prompt_norm=0.2236 prompt_std_across_batch=0.0002 free_running_acc=0.5000
+  varying_fraction: varying_fraction=0.0866 varying_fraction=0.0866 varying_fraction=0.0598 varying_fraction=0.0598 
+  prompt_norm:      prompt_norm=0.2236 prompt_norm=0.2236 prompt_norm=0.2276 prompt_norm=0.2276 
+  free_running:     free_running_acc=0.5000 free_running_acc=0.5000 free_running_acc=0.0052 free_running_acc=0.0052 
+  CANARY warnings:  26
+    [2026-09-07 11:15:52] WARNING train_inlet.py:340: [step 1000] val/generative CANARY: free-running acc 0.0052 is 1% of teacher-forced 0.7649 over 192 tokens (4 samples). Teacher forcing cannot see generative collapse -- if this gap keeps widening, the prompt is breaking generation and the loss curve will not tell you.
+    2026-09-07 11:15:52 WARNING: [step 1000] val/generative CANARY: free-running acc 0.0052 is 1% of teacher-forced 0.7649 over 192 tokens (4 samples). Teacher forcing cannot see generative collapse -- if this gap keeps widening, the prompt is breaking generation and the loss curve will not tell you.
+
+### freezehead  rc=0  5491s   flags: --freeze_head=True
+  val/generative: [step 1000] val/generative: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0000 sft_loss=2.4417 per_token_acc=0.7815 prompt_norm=0.1604 prompt_std_across_batch=0.0000 free_running_acc=0.0208
+  val/unseen: [step 1000] val/unseen: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0000 sft_loss=2.3552 per_token_acc=0.7588 prompt_norm=0.1604 prompt_std_across_batch=0.0000 free_running_acc=0.0714
+  val/benchmark: [step 1000] val/benchmark: prompt_l2_loss=0.0000 prompt_diversity_loss=0.0000 contrastive_loss=0.0000 varying_fraction=0.0000 sft_loss=1.9271 per_token_acc=0.8170 prompt_norm=0.1604 prompt_std_across_batch=0.0000 free_running_acc=0.4000
+  varying_fraction: varying_fraction=0.0000 varying_fraction=0.0000 varying_fraction=0.0000 varying_fraction=0.0000 
+  prompt_norm:      prompt_norm=0.1604 prompt_norm=0.1604 prompt_norm=0.1604 prompt_norm=0.1604 
+  free_running:     free_running_acc=0.4000 free_running_acc=0.4000 free_running_acc=0.0208 free_running_acc=0.0208 
+  CANARY warnings:  28
+    [2026-09-07 13:34:05] WARNING train_inlet.py:340: [step 1000] val/generative CANARY: free-running acc 0.0208 is 3% of teacher-forced 0.7815 over 192 tokens (4 samples). Teacher forcing cannot see generative collapse -- if this gap keeps widening, the prompt is breaking generation and the loss curve will not tell you.
+    2026-09-07 13:34:05 WARNING: [step 1000] val/generative CANARY: free-running acc 0.0208 is 3% of teacher-forced 0.7815 over 192 tokens (4 samples). Teacher forcing cannot see generative collapse -- if this gap keeps widening, the prompt is breaking generation and the loss curve will not tell you.
+

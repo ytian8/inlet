@@ -68,7 +68,7 @@ scored no better than a 1,000-step one.
 
 ## Please report back
 
-- The four startup lines from step 2, verbatim.
+- The five startup lines from step 2, verbatim.
 - `train_summary.json` and the training log.
 - `prompt_norm` at each of the six checkpoint steps — this run is about that
   number.

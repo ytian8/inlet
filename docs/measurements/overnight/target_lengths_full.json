@@ -1,0 +1,138 @@
+{
+  "n_tasks": 490,
+  "n_skipped": 0,
+  "length_source_counts": {
+    "labels": 490
+  },
+  "n_rows": 88484,
+  "supervised_field": "labels where present, else response",
+  "target_len_tokens": {
+    "mean": 11.678789385651644,
+    "median": 3.0,
+    "min": 2,
+    "max": 480,
+    "p1": 2.0,
+    "p5": 2.0,
+    "p25": 2.0,
+    "p50": 3.0,
+    "p75": 9.0,
+    "p90": 28.0,
+    "p95": 49.0,
+    "p99": 126.0
+  },
+  "per_task_mean_target_len": {
+    "min": 2.0,
+    "p25": 2.0,
+    "median": 3.450909090909091,
+    "p75": 10.756250000000001,
+    "max": 281.8545454545455
+  },
+  "long_targets": {
+    "50": {
+      "n_samples_at_or_above": 4398,
+      "frac_samples": 0.049703901270286156,
+      "share_of_gradient_TRUE": 0.049703901270286156,
+      "share_of_gradient_FALSE": 0.4219255921794954,
+      "per_token_weight_penalty_vs_median": 33.04623313627406
+    },
+    "100": {
+      "n_samples_at_or_above": 1312,
+      "frac_samples": 0.014827539442159034,
+      "share_of_gradient_TRUE": 0.014827539442159034,
+      "share_of_gradient_FALSE": 0.2145916433936593,
+      "per_token_weight_penalty_vs_median": 56.34044715447155
+    },
+    "200": {
+      "n_samples_at_or_above": 296,
+      "frac_samples": 0.003345237557072465,
+      "share_of_gradient_TRUE": 0.003345237557072465,
+      "share_of_gradient_FALSE": 0.08217935989068945,
+      "per_token_weight_penalty_vs_median": 95.634009009009
+    }
+  },
+  "shortest_10_tasks": [
+    [
+      "task190_snli_classification",
+      2.0
+    ],
+    [
+      "task717_mmmlu_answer_generation_logical_fallacies",
+      2.0
+    ],
+    [
+      "task566_circa_classification",
+      2.0
+    ],
+    [
+      "task713_mmmlu_answer_generation_human_aging",
+      2.0
+    ],
+    [
+      "task846_pubmedqa_classification",
+      2.0
+    ],
+    [
+      "task577_curiosity_dialogs_classification",
+      2.0
+    ],
+    [
+      "task698_mmmlu_answer_generation_global_facts",
+      2.0
+    ],
+    [
+      "task833_poem_sentiment_classification",
+      2.0
+    ],
+    [
+      "task1313_amazonreview_polarity_classification",
+      2.0
+    ],
+    [
+      "task1419_mathqa_gain",
+      2.0
+    ]
+  ],
+  "longest_10_tasks": [
+    [
+      "task123_conala_sort_dictionary",
+      86.32
+    ],
+    [
+      "task1728_web_nlg_data_to_text",
+      88.395
+    ],
+    [
+      "task389_torque_generate_temporal_question",
+      89.985
+    ],
+    [
+      "task1190_add_integer_to_list",
+      95.66025641025641
+    ],
+    [
+      "task1151_swap_max_min",
+      97.4
+    ],
+    [
+      "task130_scan_structured_text_generation_command_action_long",
+      153.685
+    ],
+    [
+      "task183_rhyme_generation",
+      164.72
+    ],
+    [
+      "task045_miscellaneous_sentence_paraphrasing",
+      168.01973684210526
+    ],
+    [
+      "task934_turk_simplification",
+      198.095
+    ],
+    [
+      "task901_freebase_qa_category_question_generation",
+      281.8545454545455
+    ]
+  ],
+  "skipped": []
+}

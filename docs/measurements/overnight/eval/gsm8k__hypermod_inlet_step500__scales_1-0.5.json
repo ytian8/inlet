@@ -1,0 +1,80 @@
+{
+  "task": "gsm8k",
+  "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+  "checkpoint": "/root/outputs/hyper_lora/control/hypermod_inlet_step500.pt",
+  "n_virtual_tokens": {
+    "eval_descs__0@s1": 32,
+    "eval_descs__0@s0.5": 32
+  },
+  "results": {
+    "gsm8k": {
+      "eval_descs__0@s1": {
+        "acc": 0.3388931008339651
+      },
+      "eval_descs__0@s0.5": {
+        "acc": 0.4116755117513268
+      }
+    }
+  },
+  "protocol": {
+    "n_eval_descs": 2,
+    "random_descs": false,
+    "reported_protocol": false
+  },
+  "train_config": {
+    "n_virtual_tokens": 32,
+    "model_dim": 4096,
+    "head": "per_slot",
+    "task_emb_size": 1024,
+    "encoded_task_emb_size": 1024,
+    "hypernet_hidden_size": 2048,
+    "hypernet_n_blocks": 2,
+    "desc_slots": 8,
+    "cond": "cross",
+    "n_cross_layers": 2,
+    "n_cross_heads": 8,
+    "emb_model": "Alibaba-NLP/gte-large-en-v1.5",
+    "model_dir": "mistralai/Mistral-7B-Instruct-v0.2",
+    "n_train_ds": 479,
+    "n_descs_per_ds": 128,
+    "inp_max_len": 512,
+    "lr": 2.5e-05,
+    "seed": 42,
+    "curstep": 500
+  },
+  "format_instruction": {
+    "mode": "keep",
+    "n_samples": 1319,
+    "n_changed": 0
+  },
+  "completion_lengths": {
+    "eval_descs__0@s1": {
+      "n": 1319,
+      "chars_mean": 342.3,
+      "chars_median": 273,
+      "chars_p90": 559,
+      "words_mean": 71.6,
+      "words_median": 58,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "Janet lays 16 eggs per day. She eats 3 for breakfast, so she has 13 eggs left. She bakes muffins with 4 eggs, so she has 9 eggs left. She sells the remaining eggs for $2 each. She sells 9 eggs, so she makes $18.",
+        "\n\n1 bolt blue = 1 bolt\n\n1 bolt white = 1 bolt\n\n2 bolts blue = 2 bolts\n\nhalf bolt white = 1 bolt\n\n2 bolts blue + half bolt white = 2 bolts + 1 bolt = 3 bolts"
+      ]
+    },
+    "eval_descs__0@s0.5": {
+      "n": 1319,
+      "chars_mean": 667.9,
+      "chars_median": 617,
+      "chars_p90": 1066,
+      "words_mean": 132.0,
+      "words_median": 122,
+      "frac_empty": 0.0,
+      "frac_under_10_words": 0.0,
+      "examples": [
+        "\n\n1. Janet lays 16 eggs per day.\n2. She uses 3 eggs for breakfast and 4 eggs for baking muffins, so she sells the remaining eggs.\n3. She sells each egg for $2.\n\nFirst, let's find out how many eggs she sells:\n\nTotal eggs laid = 16\nEggs used for breakfast and baking = 3 (for breakfast) + 4 (for muffin",
+        "The robe requires 2 bolts of blue fiber and half that amount of white fiber. Half of 2 is 1, so the robe needs 1 bolt of white fiber. In total, it takes 2 bolts of blue fiber + 1 bolt of white fiber = \u00b3<3>3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0.1>_3<0."
+      ]
+    }
+  }
+}

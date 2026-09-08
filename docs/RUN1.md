@@ -234,6 +234,7 @@ source .venv/bin/activate
 export HF_HOME=/workspace/hf_cache      # BEFORE common.sh, every shell -- see §3
 source scripts/common.sh
 
+mkdir -p /root/outputs
 VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
 ./scripts/train.sh 2 --run_name=run1 \
     --desc_slots=8 --cond=cross \
@@ -241,10 +242,16 @@ VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
     --max_steps=16000 \
     --checkpoint_steps=500,1000,2000,4000,8000,16000 \
     --val_freq=1000 \
-    --val_max_batches=15
+    --val_max_batches=15 \
+  2>&1 | tee /root/outputs/run1.train.log
 ```
 
 ~10 hours on 2x A100.
+
+**Keep the `tee`.** `train.sh` writes no log of its own, and every later step —
+reading `prompt_norm` per checkpoint, deriving the eval scale, reporting the
+startup lines — reads `run1.train.log`. Without it the only copy is tmux
+scrollback, which a 16,000-step run overruns.
 
 **Every override must be `--key=value`.** Upstream's parser is not argparse; it
 builds its override dict as `arg.split("=")[1]`, so a bare `--freeze_head` or a
@@ -264,7 +271,7 @@ found in dataclass`.
 silently at 19/500 when the ssh session that started it closed, leaving no error
 in the log.
 
-### Check these four lines, then leave it alone
+### Check these five lines, then leave it alone
 
 ```
 LR: 2.500e-05 x ... = ...          -- independent of GPU count by construction
@@ -394,7 +401,7 @@ the junk-description controls, which is what goes in the paper:
 
 ## 7. Send back
 
-- The four startup lines, verbatim.
+- The five startup lines, verbatim.
 - `train_summary.json` and the full training log.
 - `prompt_norm` at each checkpoint step.
 - Every JSON under `eval_results_inlet/` (they are small).
