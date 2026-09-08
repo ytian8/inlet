@@ -8,13 +8,14 @@ Train and evaluate one Inlet model on our cluster.
 
 Repo: https://github.com/ytian8/inlet (public)
 Follow `docs/RUN1.md`. It has every command. **Make sure you are on a commit at
-or after `52fb6ec`** — earlier ones fail partway through setup or log the run's
-headline number nowhere.
+or after `c8c750d`** — earlier ones die partway through setup, end your shell on
+a failed `grep`, or report a step curve built by averaging two prompt scales
+together.
 
-Every command in RUN1.md was run end to end on a fresh A100 box on 2026-09-08,
-which is where the traps below come from. Budget **~90 GB of disk** (the caches
-alone are 32 GB) and note that §3 puts `HF_HOME` on a separate volume for
-exactly that reason.
+Every command in RUN1.md was executed on a fresh A100 box on 2026-09-08, from
+`git clone` through the scale sweep, which is where the traps below come from.
+Budget **~90 GB of disk** (the caches alone are 32 GB); §3 puts `HF_HOME` on a
+separate volume for that reason.
 
 ## What this run is for
 
