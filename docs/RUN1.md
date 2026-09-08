@@ -325,14 +325,19 @@ grep -a "\[step 4000\] train:" /root/outputs/run1.train.log \
     | grep -ao "prompt_norm=[0-9.]*"
 
 CKPT=/root/outputs/hyper_lora/run1/hypermod_inlet_step4000.pt
-VLLM_ENABLE_V1_MULTIPROCESSING=0 \
-python -m inlet.eval_inlet \
-    --task gsm8k --tasks gsm8k humaneval arc_challenge \
-    --checkpoint $CKPT \
-    --prompt-scales 1.0,0.5,0.35 \
-    --max-eval-descs 1 --skip-random-descs \
-    --out-dir /root/outputs/eval_results_inlet
+TASKS="gsm8k humaneval arc_challenge" \
+EXTRA_EVAL_ARGS="--prompt-scales 1.0,0.5,0.35 --max-eval-descs 1 --skip-random-descs" \
+    ./scripts/eval.sh $CKPT
 ```
+
+**Use `eval.sh` to cover several tasks, never `eval_inlet --tasks`.** With a
+checkpoint the prompts are generated from `--task` alone and the engine is built
+once, so `--task gsm8k --tasks gsm8k humaneval` scores humaneval with *gsm8k's*
+description and writes it to `humaneval__<ckpt>.json` — no error, no warning.
+`eval.sh` re-invokes the module once per task, so each task gets its own
+description. The raw form now exits with an explanation instead of running;
+`--tasks` remains correct for `--zero-prompt` and `--synthetic-prompt`, whose
+prompts are task-independent.
 
 `--max-eval-descs 1 --skip-random-descs` makes this a **debug protocol**: one
 description, no junk-description controls. Numbers from it must never share a
@@ -348,6 +353,9 @@ python -m inlet.eval_inlet --task gsm8k --tasks gsm8k humaneval \
     --out-dir /root/outputs/eval_results_inlet
 ```
 
+(`--tasks` is correct *here*: the zero prompt is the same empty tensor for every
+task, so one engine build genuinely covers both.)
+
 Expect gsm8k ~39.95 and humaneval ~39.63 (published zero-shot: 40.71 / 37.80).
 **If these are far off, stop — the eval path is wrong and nothing downstream
 means anything.**
@@ -355,14 +363,12 @@ means anything.**
 ### Stage B — full table at the chosen (checkpoint, scale) (~1.5 h)
 
 ```bash
-python -m inlet.eval_inlet \
-    --task arc_challenge \
-    --tasks arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp humaneval \
-    --checkpoint $BEST_CKPT \
-    --prompt-scales $BEST_SCALE \
-    --max-eval-descs 1 --skip-random-descs \
-    --out-dir /root/outputs/eval_results_inlet
+EXTRA_EVAL_ARGS="--prompt-scales $BEST_SCALE --max-eval-descs 1 --skip-random-descs" \
+    ./scripts/eval.sh $BEST_CKPT
 ```
+
+`eval.sh` already defaults `TASKS` to the ten benchmarks in T2L's Table 2 order,
+so there is nothing to list.
 
 Then the **reported protocol** on the same checkpoint — three descriptions plus
 the junk-description controls, which is what goes in the paper:

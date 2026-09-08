@@ -327,6 +327,27 @@ def parse_args():
 def main() -> None:
     args = parse_args()
     assert args.checkpoint or args.zero_prompt, "pass --checkpoint or --zero-prompt"
+    # --tasks scores ONE set of prompts on several tasks in one engine build.
+    # That is only sound when the prompts do not depend on the task, i.e. the
+    # zero and synthetic arms. With a checkpoint the prompts come from
+    # _default_descs(args.task), so `--task gsm8k --tasks gsm8k humaneval`
+    # scored humaneval with gsm8k's description and wrote it to
+    # humaneval__<ckpt>.json -- no error, no warning, and a number that
+    # contradicts the one claim this project is testing. argparse's help has
+    # said "only valid with --zero-prompt / --synthetic-prompt" all along;
+    # nothing enforced it. Use scripts/eval.sh to loop tasks: it re-invokes this
+    # module once per task, so each gets its own description.
+    if args.checkpoint and args.tasks and set(args.tasks) != {args.task}:
+        raise SystemExit(
+            "--tasks with --checkpoint would score "
+            f"{sorted(set(args.tasks) - {args.task})} using {args.task!r}'s "
+            "description prompt.\n"
+            "  Prompts are generated from --task alone; the engine is built once "
+            "and reused.\n"
+            f"  Loop instead:  TASKS=\"{' '.join(args.tasks)}\" ./scripts/eval.sh "
+            f"{args.checkpoint}\n"
+            "  --tasks is for --zero-prompt / --synthetic-prompt, whose prompts "
+            "are task-independent.")
     # Which tokenizer / embedding loader / reference numbers are live. If this
     # says "(fallback)", the Inlet-vs-prompt-tuning comparison is between two
     # implementations that were never checked against each other -- the numbers
