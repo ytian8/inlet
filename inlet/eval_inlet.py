@@ -182,74 +182,6 @@ def completion_stats(task_result) -> dict:
     }
 
 
-# One vLLM engine per (model, memory fraction), reused across tasks in the same
-# process. Building it costs minutes; scoring a small task costs seconds, so a
-# sweep over tasks otherwise spends nearly all its wall-clock on rebuilds.
-_ENGINES: dict = {}
-
-
-def _engine(model_dir, gpu_memory_utilization):
-    key = (model_dir, round(float(gpu_memory_utilization), 3))
-    if key not in _ENGINES:
-        _ENGINES[key] = vllm.LLM(
-            model_dir,
-            seed=42,
-            max_model_len=2**12,
-            gpu_memory_utilization=gpu_memory_utilization,
-            enable_prompt_embeds=True,
-        )
-    return _ENGINES[key]
-
-
-def completion_stats(task_result) -> dict:
-    """Length of what the model actually wrote.
-
-    Accuracy alone cannot distinguish "the prompt made the model wrong" from
-    "the prompt made the model stop early". All three evaluator classes record
-    the raw text under sample_details[i]["output"], so the distinction is free.
-    """
-    details = getattr(task_result, "sample_details", None) or []
-    outs = [d.get("output", "") or "" for d in details if isinstance(d, dict)]
-    if not outs:
-        return {}
-    chars = sorted(len(o) for o in outs)
-    words = sorted(len(o.split()) for o in outs)
-
-    def pct(xs, q):
-        return xs[min(len(xs) - 1, int(q * len(xs)))]
-
-    return {
-        "n": len(outs),
-        "chars_mean": round(sum(chars) / len(chars), 1),
-        "chars_median": pct(chars, 0.5),
-        "chars_p90": pct(chars, 0.9),
-        "words_mean": round(sum(words) / len(words), 1),
-        "words_median": pct(words, 0.5),
-        "frac_empty": round(sum(c == 0 for c in chars) / len(chars), 4),
-        "frac_under_10_words": round(sum(w < 10 for w in words) / len(words), 4),
-        "examples": [o[:300] for o in outs[:2]],
-    }
-
-
-# One vLLM engine per (model, memory fraction), reused across tasks in the same
-# process. Building it costs minutes; scoring a small task costs seconds, so a
-# sweep over tasks otherwise spends nearly all its wall-clock on rebuilds.
-_ENGINES: dict = {}
-
-
-def _engine(model_dir, gpu_memory_utilization):
-    key = (model_dir, round(float(gpu_memory_utilization), 3))
-    if key not in _ENGINES:
-        _ENGINES[key] = vllm.LLM(
-            model_dir,
-            seed=42,
-            max_model_len=2**12,
-            gpu_memory_utilization=gpu_memory_utilization,
-            enable_prompt_embeds=True,
-        )
-    return _ENGINES[key]
-
-
 def make_eval_model(prompts_by_tag: dict, embed_weight,
                     format_instruction="keep", format_description=None,
                     provenance=None):
@@ -356,6 +288,12 @@ def parse_args():
     # output_root(), not HERE: when baseline_prompt_tuning is importable HERE is
     # rebound to it, and Inlet results would be written into the upstream
     # checkout -- the one thing INLET_OUTPUT_ROOT exists to prevent.
+    p.add_argument("--prompt-scales", default="",
+                   help="comma-separated multipliers, e.g. '1.0,0.5,0.25'. Scores the "
+                        "SAME generated prompt at several magnitudes. NOTE scale 0 is "
+                        "NOT --zero-prompt: it is 32 rows of zeros, which still occupy "
+                        "sequence positions and are attended to, whereas --zero-prompt "
+                        "prepends nothing at all. Empty = unscaled, the default.")
     p.add_argument("--synthetic-prompt", default="",
                    help="comma-separated untrained control prompts scored in the "
                         "same engine: 'vocab' (the model at step 0) and/or 'gauss'.")
@@ -438,6 +376,25 @@ def main() -> None:
             prompts["zero_prompt"] = torch.zeros(
                 0, embed_weight.shape[1], dtype=embed_weight.dtype)
             suffix += "__plus_zero"
+
+    # Scale sweep. The learned prompt cuts gsm8k completions from 129 words to
+    # 47 and humaneval from 139 to 18; the question this answers is whether that
+    # is the prompt's CONTENT or simply its MAGNITUDE. Scaling the whole prompt
+    # (base included) walks it toward zero, so a monotonic recovery of length as
+    # the scale falls localises the damage to how hard the prompt pushes.
+    #
+    # scale 0 is NOT the same arm as --zero-prompt: it is 32 rows of zeros,
+    # which still take up 32 sequence positions and are attended to, while
+    # --zero-prompt concatenates nothing. Running both separates "the prefix has
+    # harmful content" from "a 32-token prefix is harmful at all".
+    scales = [float(x) for x in args.prompt_scales.split(",") if x.strip()]
+    if scales:
+        scaled = {}
+        for nm, pt in prompts.items():
+            for sc in scales:
+                scaled[f"{nm}@s{sc:g}"] = (pt.float() * sc).to(pt.dtype)
+        prompts = scaled
+        suffix += "__scales_" + "-".join(f"{sc:g}" for sc in scales)
 
     kinds = [k for k in args.synthetic_prompt.split(",") if k]
     if kinds:

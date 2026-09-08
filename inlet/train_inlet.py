@@ -221,6 +221,13 @@ class InletArguments(TrainingArguments):
     generative_val_tasks: str = "gsm8k"
     save_best_per_split: bool = True
     canary_samples: int = 4
+    # Batches per split per validation. Upstream's hardcoded 50 costs ~2
+    # minutes a split, so a 4-split validation is ~8 minutes; at val_freq=500
+    # that is more wall-clock than the training it is measuring. Lowering it
+    # makes the val LOSS noisier and leaves the canary untouched (that reads
+    # one batch and generates `canary_samples` rows whatever this is).
+    # Default stays 50 so nothing changes unless asked.
+    val_max_batches: int = 50
     canary_max_new_tokens: int = 48
     # DDP. Each rank runs its OWN hierarchical sampler with its own seed and
     # gradients are averaged, so the effective number of distinct task
@@ -1038,6 +1045,7 @@ def main(args):
     hypermod.train()
     if is_main:
         validate(model, hypermod_eval, val_dataloaders, val_loss_fn, curstep=0, is_main=True,
+                 max_batches=args.val_max_batches,
                  canary_samples=args.canary_samples,
                  canary_max_new_tokens=args.canary_max_new_tokens)
         save_checkpoint(save_dir, hypermod, args, 0, accelerator=accelerator)
@@ -1139,6 +1147,7 @@ def main(args):
                 if is_main:
                     vi = validate(model, hypermod_eval, val_dataloaders, val_loss_fn,
                                   curstep, is_main=True,
+                                  max_batches=args.val_max_batches,
                                   canary_samples=args.canary_samples,
                                   canary_max_new_tokens=args.canary_max_new_tokens)
                     # NAMED, never positional. This was `next(iter(vi))`, i.e.
