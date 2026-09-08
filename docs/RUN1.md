@@ -47,7 +47,7 @@ the result is the same, just slower (~4.5 s/step on 1 A100, ~2.2 s/step on 2).
 | `.venv` | 8.2 GB | **local disk** (pip onto a network mount wedges silently) |
 | `HF_HOME` (models + processed datasets) | **32 GB** | anywhere with room; a network volume is fine, it is read-mostly |
 | `third_party/.../data/transformed_datasets` | 6.7 GB | with the repo |
-| checkpoints (6 x 122 MB) + eval scratch | ~2 GB | with `INLET_OUTPUT_ROOT` |
+| checkpoints (11 x 122 MB) + eval scratch | ~2 GB | with `INLET_OUTPUT_ROOT` |
 
 That is ~47 GB before any headroom, and `smoke.sh` additionally refuses to
 start unless **20 GB** is free. **A 60 GB local disk is not enough for all of
@@ -194,6 +194,10 @@ WORKERS=2 ./scripts/warm_cache.sh \
 Note that `warm_cache.sh` only *writes* `warm_failures.json` when something
 fails, so after a fully successful retry that file still lists the datasets
 that just succeeded. Do not read it as current state.
+
+**Eleven checkpoints, not six.** The six from `--checkpoint_steps`, plus one
+best-so-far per validation split (`hypermod_inlet_best_val_{seen,unseen,
+benchmark,generative}.pt`), plus the final `hypermod_inlet.pt`. Each is 122 MB.
 
 ### Pre-flight
 
