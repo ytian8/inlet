@@ -45,34 +45,49 @@ say() { printf '\n[%s] %s\n' "$(date -u +%H:%M:%S)" "$*" | tee -a "$LOG"; }
 # Pass 1 is the full set unless a failure list already exists.
 if [[ -f "$FAILJSON" ]] && [[ "$(count_failed)" != "0" ]]; then
   say "resuming from $FAILJSON ($(count_failed) datasets)"
-  ARGS=(--only-failed "$FAILJSON")
 else
   say "first pass: everything"
-  ARGS=()
 fi
 
 prev=-1
 for ((pass = 1; pass <= MAX_PASSES; pass++)); do
+  # warm_cache.sh only WRITES the failure file when something fails, so a pass
+  # in which everything succeeds leaves the previous pass's file untouched.
+  # Reading it afterwards then reports the old count, the loop sees "no
+  # progress", and it stops with STALLED having actually just finished. Move
+  # the file aside first: whatever is there after the pass was written by THIS
+  # pass, and its absence means zero failures.
+  IN=()
+  if [[ -f "$FAILJSON" ]]; then
+    mv "$FAILJSON" "$FAILJSON.in"
+    IN=(--only-failed "$FAILJSON.in")
+  fi
+
   say "pass $pass  (WORKERS=${WORKERS:-4})"
-  WORKERS="${WORKERS:-4}" ./scripts/warm_cache.sh "${ARGS[@]}" 2>&1 \
-    | grep -av "examples/s" | tail -25 | tee -a "$LOG"
+  # Keep the FAIL lines. They carry the reason (429, PermissionError, a broken
+  # cache dir), and truncating them is what makes a stall undiagnosable.
+  WORKERS="${WORKERS:-4}" ./scripts/warm_cache.sh "${IN[@]}" 2>&1 \
+    | grep -av "examples/s" | grep -aE "FAIL|ok=|warmed|failures|Error" | tail -60 \
+    | tee -a "$LOG"
 
   left="$(count_failed)"
   say "pass $pass done -- $left still failing"
 
   if [[ "$left" == "0" ]]; then
     say "ALL WARMED after $pass pass(es)"
+    rm -f "$FAILJSON.in"
     echo "PACED_EXIT=0" | tee -a "$LOG"
     exit 0
   fi
   if [[ "$left" == "$prev" ]]; then
     say "STALLED: $left datasets failed twice in a row with no progress."
-    say "That is no longer the rate limit -- look at the errors in $LOG."
+    say "That is no longer the rate limit. The FAIL lines above carry the reason;"
+    say "debris from an interrupted run (a half-written cache dir, or a stale"
+    say ".incomplete blob) is the usual cause -- delete it and rerun."
     echo "PACED_EXIT=2" | tee -a "$LOG"
     exit 2
   fi
   prev="$left"
-  ARGS=(--only-failed "$FAILJSON")
 
   say "sleeping ${WINDOW}s for the rate-limit window"
   sleep "$WINDOW"

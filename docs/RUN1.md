@@ -127,12 +127,29 @@ seconds. Rerunning immediately fails all of them again. **This looks like a hard
 error and is not one.** The paced script loops `--only-failed` with the window
 slept out between passes; expect ~40 minutes and 7-8 passes.
 
-If it ends with `PACED_EXIT=2` (stalled), look at the two or three that are
-still failing before assuming a network problem. Last time both were debris
-from an earlier interrupted run: one half-written cache directory ("neither a
-`Dataset` nor a `DatasetDict`" — it had the `.arrow` file and no
-`dataset_info.json`) and one `.incomplete` blob that then failed with
-`PermissionError`. Deleting both and retrying warmed them in six seconds.
+Expect `PACED_EXIT=0` and about 1,000 directories under
+`third_party/text-to-lora/data/transformed_datasets` (each task is cached twice,
+once as text and once tokenised, so ~1,000 for 500 tasks).
+
+If it ends with `PACED_EXIT=2` (stalled), read the `FAIL` lines it printed
+before assuming a network problem. Debris from an earlier interrupted run is
+the usual cause: a half-written cache directory ("neither a `Dataset` nor a
+`DatasetDict`" — it has the `.arrow` file and no `dataset_info.json`), or a
+stale `.incomplete` blob that then fails with `PermissionError`. Deleting those
+and rerunning warmed them in six seconds.
+
+To retry a specific set by hand, **pass an absolute path** —
+`--only-failed third_party/.../warm_failures.json` fails with
+`FileNotFoundError` because the script changes directory first:
+
+```bash
+WORKERS=2 ./scripts/warm_cache.sh \
+    --only-failed $PWD/third_party/text-to-lora/warm_failures.json
+```
+
+Note that `warm_cache.sh` only *writes* `warm_failures.json` when something
+fails, so after a fully successful retry that file still lists the datasets
+that just succeeded. Do not read it as current state.
 
 ### Pre-flight
 
