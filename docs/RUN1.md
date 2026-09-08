@@ -40,8 +40,20 @@ need. Report as "N steps", never rounded up.
 `2` to `train.sh`; the global batch is pinned by `--global_tasks_per_step` so
 the result is the same, just slower (~4.5 s/step on 1 A100, ~2.2 s/step on 2).
 
-Disk: 60GB local for the venv and outputs, plus ~25GB for model and dataset
-caches.
+**Disk — measured, not estimated:**
+
+| | size | where it must live |
+|---|---|---|
+| `.venv` | 8.2 GB | **local disk** (pip onto a network mount wedges silently) |
+| `HF_HOME` (models + processed datasets) | **32 GB** | anywhere with room; a network volume is fine, it is read-mostly |
+| `third_party/.../data/transformed_datasets` | 6.7 GB | with the repo |
+| checkpoints (6 x 122 MB) + eval scratch | ~2 GB | with `INLET_OUTPUT_ROOT` |
+
+That is ~47 GB before any headroom, and `smoke.sh` additionally refuses to
+start unless **20 GB** is free. **A 60 GB local disk is not enough for all of
+it** — on a 60 GB box, `smoke.sh` stops with a disk-check failure after
+everything is installed. Either give the repo's filesystem ~90 GB, or put
+`HF_HOME` on a separate large volume, which is what §3 does.
 
 ---
 
@@ -58,8 +70,16 @@ cd /root
 git clone https://github.com/ytian8/inlet.git && cd inlet
 bash scripts/setup_env.sh                      # ~15 min, no GPU needed
 source .venv/bin/activate
+
+export HF_HOME=/workspace/hf_cache     # BEFORE common.sh -- see below
 source scripts/common.sh
 ```
+
+**Put `HF_HOME` on the big volume, and export it before sourcing
+`common.sh`.** The caches are 32 GB and will not fit beside the venv on a 60 GB
+local disk. Use this same two-line order in **every** shell afterwards (warm,
+train, eval) — `common.sh` only fills the variable in when it is unset, so a
+shell that forgets it silently uses a different cache and re-downloads 20 GB.
 
 **`setup_env.sh` can stop before installing anything**, on purpose. Its step 0
 runs `inlet.test_upstream_api`, an AST-only check that every symbol, call
@@ -88,23 +108,18 @@ huggingface-cli download Alibaba-NLP/gte-large-en-v1.5
 huggingface-cli download Alibaba-NLP/new-impl        # <-- easy to miss
 ```
 
-**Do not set `HF_HOME` after sourcing `common.sh`.** `common.sh` does
+**Why the export has to come before `common.sh`.** It does
 
 ```bash
 export HF_HOME="${HF_HOME:-$INLET_ROOT/.hf}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 ```
 
-so `HF_HUB_CACHE` is fixed at the moment `common.sh` runs. Exporting `HF_HOME`
-afterwards changes nothing the downloader looks at, and the 20 GB lands in
-`<repo>/.hf` while you believe it went where you asked. It fails quietly: the
-download reports success and the directory you named stays nearly empty.
-
-The default (`<repo>/.hf`, so local disk) is correct on a box with ~60 GB free
-— the caches come to about 20 GB of models plus a few GB of datasets, on top of
-a ~15 GB venv. **If you need them elsewhere, export `HF_HOME` BEFORE sourcing
-`common.sh`**, and export it that way in every later shell too — `common.sh`
-only fills it in when unset.
+so `HF_HUB_CACHE` is fixed at the moment `common.sh` runs. Setting `HF_HOME`
+afterwards changes nothing the downloader consults: the 32 GB goes to
+`<repo>/.hf` while the directory you named stays at a few megabytes, and
+`huggingface-cli` reports success the whole way. Nothing announces it until
+`smoke.sh` refuses to start on a full disk, long after the download.
 
 `gte-large-en-v1.5` loads with `trust_remote_code=True`, which fetches its code
 from the separate repo `Alibaba-NLP/new-impl`. Downloading the model alone is
