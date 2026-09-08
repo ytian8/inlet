@@ -425,7 +425,22 @@ the junk-description controls, which is what goes in the paper:
 
 ## 8. The question this run answers
 
-Plot **scaled score against step count**.
+Plot **scaled score against step count**. `sweep_report` builds it from the
+JSON `eval.sh` already wrote — it reads the step out of each checkpoint's own
+config, so nothing has to be assembled by hand:
+
+```bash
+python -m inlet.sweep_report /root/outputs/eval_results_inlet --scale 0.5 --paper
+python -m inlet.sweep_report /root/outputs/eval_results_inlet --scale 1   --paper
+```
+
+**`--scale` is required once any result carries `--prompt-scales`,** and each
+scale is its own series. They are not averaged and must not be: the x1.0 and
+x0.5 arms live in the same JSON under keys that both begin `eval_descs`, and
+meaning them together produces a number that is nobody's measurement — on the
+worked example it moved the peak from step 1,000 to step 500, which is the
+answer this run exists to give. Without `--scale`, `sweep_report` lists the
+scales it found and stops.
 
 - Peaks at 2,000-4,000 and flattens → long training is unnecessary; report the
   short run and say so.

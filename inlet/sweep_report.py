@@ -44,9 +44,30 @@ def _score(metrics: dict):
     return None
 
 
-def collect(results_dir: pathlib.Path):
-    """-> {task: {step: mean score over eval_descs}}, and any files skipped."""
-    out, skipped, labels = {}, [], {}
+SCALE_RE = re.compile(r"@s([0-9.eE+-]+)$")
+
+
+def _arm_scale(tag: str):
+    """The prompt scale baked into an arm key, or None for an unscaled run.
+
+    eval_inlet names a scaled arm `eval_descs__0@s0.5`. Both that and
+    `eval_descs__0@s1` start with `eval_descs`, so averaging every arm whose key
+    starts with `eval_descs` -- which is what this file used to do -- silently
+    means the x1.0 and x0.5 arms and reports the average of a good number and a
+    bad one, per task, per step. Run 1's entire output is scaled-score-vs-step,
+    so that would have been the whole table.
+    """
+    m = SCALE_RE.search(tag)
+    return float(m.group(1)) if m else None
+
+
+def collect(results_dir: pathlib.Path, scale=None):
+    """-> {task: {step: mean score over eval_descs}}, and any files skipped.
+
+    `scale` picks one prompt-scale arm; None means the unscaled arms. Callers
+    must choose, because there is no meaningful average across scales.
+    """
+    out, skipped, labels, seen_scales = {}, [], {}, set()
     for f in sorted(results_dir.glob("*.json")):
         try:
             d = json.loads(f.read_text())
@@ -75,15 +96,19 @@ def collect(results_dir: pathlib.Path):
             continue
         label = pathlib.Path(str(ck)).stem
         labels.setdefault(step, set()).add(label)
-        # average the real-description variants only; random_descs is a control
+        # average the real-description variants only; random_descs is a control,
+        # and only within ONE prompt scale -- see _arm_scale.
         per_tag = d.get("results", {}).get(task, {})
-        reals = [_score(v) for k, v in per_tag.items() if k.startswith("eval_descs")]
+        seen_scales.update(_arm_scale(k) for k in per_tag if k.startswith("eval_descs"))
+        reals = [_score(v) for k, v in per_tag.items()
+                 if k.startswith("eval_descs") and _arm_scale(k) == scale]
         reals = [r for r in reals if r is not None]
         if not reals:
-            skipped.append((f.name, "no eval_descs entries"))
+            want = "unscaled" if scale is None else f"scale {scale:g}"
+            skipped.append((f.name, f"no eval_descs entries at {want}"))
             continue
         out.setdefault(task, {})[step] = sum(reals) / len(reals)
-    return out, skipped, labels
+    return out, skipped, labels, seen_scales
 
 
 def _plot(curves, full_steps, path):
@@ -192,18 +217,35 @@ def main(argv=None):
     p.add_argument("--paper", action="store_true",
                    help="also print a markdown table laid out like the results "
                         "table: one row per task, one column per checkpoint")
+    p.add_argument("--scale", type=float, default=None, metavar="S",
+                   help="report the prompt-scale arm '@sS' (e.g. --scale 0.5). "
+                        "Omit for results with no --prompt-scales. Scales are "
+                        "separate series, never averaged together.")
     a = p.parse_args(argv)
     d = pathlib.Path(a.results_dir)
     if not d.is_dir():
         print(f"not a directory: {d}", file=sys.stderr)
         return 1
 
-    curves, skipped, labels = collect(d)
+    curves, skipped, labels, seen = collect(d, a.scale)
+    known = sorted(x for x in seen if x is not None)
+    if a.scale is None and known and not curves:
+        print(f"{d} holds scaled results only; pick one arm, they are not "
+              "comparable to each other.")
+        print("  scales present: " + ", ".join(f"{x:g}" for x in known))
+        print(f"  e.g.  python -m inlet.sweep_report {d} --scale {known[0]:g}")
+        return 1
     if not curves:
         print(f"no usable results in {d}")
         for n, why in skipped[:10]:
             print(f"  skipped {n}: {why}")
         return 1
+    if a.scale is None:
+        if known:
+            print(f"[unscaled arms; this directory also holds scales "
+                  f"{', '.join(f'{x:g}' for x in known)} -- pass --scale to see them]")
+    else:
+        print(f"[prompt scale x{a.scale:g}]")
 
     steps = sorted({s for c in curves.values() for s in c})
     tasks = sorted(curves)
