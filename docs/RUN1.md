@@ -130,8 +130,19 @@ Then the datasets:
 
 ```bash
 tmux new -s warm
+cd /root/inlet
+source .venv/bin/activate
+export HF_HOME=/workspace/hf_cache
+source scripts/common.sh
 WORKERS=4 ./scripts/warm_cache_paced.sh
 ```
+
+(`tmux new` does inherit the environment of the shell that starts it, so the
+four lines are redundant *if* you never detach and never open a second shell.
+They are here because that assumption is the one that breaks: a reattached or
+second shell without them warms 12 GB into a different cache, and the failure
+does not surface until a later step reports a dataset it just downloaded as
+missing.)
 
 **Use `warm_cache_paced.sh`, not `warm_cache.sh` directly.** The Hugging Face
 API allows 500 calls per 300 seconds and says so in its response headers
