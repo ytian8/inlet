@@ -80,6 +80,11 @@ source scripts/common.sh
 Those last five lines are the **standard preamble**. Every shell in this
 document starts with them, and they are repeated each time rather than assumed.
 
+`common.sh` runs `set -euo pipefail` when a *script* sources it and leaves your
+own shell alone, so a `grep` that finds nothing — which several commands below
+legitimately do — will not end your session. Inside `smoke.sh`, `train.sh` and
+`eval.sh` strict mode is still on.
+
 **Both exports must precede `source scripts/common.sh`.** `common.sh` fills each
 one in only when it is unset, and everything downstream reads its *derived*
 values, so an export that arrives afterwards is ignored:

@@ -2,7 +2,23 @@
 #
 # One job: make `python -m inlet.<anything>` work, on any cluster, with the same
 # environment on every rank.
-set -euo pipefail
+
+# Strict mode belongs to our SCRIPTS, not to whoever sources this at a prompt.
+# The runbook tells a human (or an agent driving the box over ssh) to source
+# this file directly, and unconditional `set -e` then makes their shell exit on
+# the first command that returns non-zero -- which includes a `grep` that simply
+# finds nothing, something the runbook itself asks them to run. Nothing is
+# printed; the shell is just gone, mid-workflow. `set -u` compounds it: one
+# unset variable ends the session.
+#
+# BASH_SOURCE[1] is the file that sourced us, and is unset when the caller is an
+# interactive prompt or a `bash -c` / `ssh host '...'` one-liner. So: strict for
+# scripts, forgiving for people. Every script in this directory already sets its
+# own options anyway, and two of them deliberately choose weaker ones -- this
+# line used to silently override those.
+if [[ -n "${BASH_SOURCE[1]:-}" ]]; then
+  set -euo pipefail
+fi
 
 INLET_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export INLET_ROOT
