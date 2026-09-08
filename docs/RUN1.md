@@ -301,6 +301,20 @@ found in dataclass`.
 silently at 19/500 when the ssh session that started it closed, leaving no error
 in the log.
 
+**If you start that tmux from a non-interactive `ssh host '...'`, use
+`setsid`.** A plain `tmux new -d` issued that way can be torn down with the ssh
+command that started it — observed here, with the session gone and the log
+frozen mid-line four minutes later, and nothing written anywhere to say so:
+
+```bash
+setsid tmux new -d -s run1 "..."
+ssh host tmux ls          # separate call: confirm it is still there
+```
+
+Killing the last remaining session in the same command that starts the next one
+also races the server's own shutdown. Check `tmux ls` in a second call rather
+than assuming.
+
 ### Check these five lines, then leave it alone
 
 ```
