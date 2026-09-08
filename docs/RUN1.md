@@ -69,17 +69,27 @@ local and `/workspace` is the network volume, so:
 cd /root
 git clone https://github.com/ytian8/inlet.git && cd inlet
 bash scripts/setup_env.sh                      # ~15 min, no GPU needed
-source .venv/bin/activate
 
-export HF_HOME=/workspace/hf_cache     # BEFORE common.sh -- see below
+cd /root/inlet
+source .venv/bin/activate
+export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- see below
+export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 ```
 
-**Put `HF_HOME` on the big volume, and export it before sourcing
-`common.sh`.** The caches are 32 GB and will not fit beside the venv on a 60 GB
-local disk. Use this same two-line order in **every** shell afterwards (warm,
-train, eval) — `common.sh` only fills the variable in when it is unset, so a
-shell that forgets it silently uses a different cache and re-downloads 20 GB.
+Those last five lines are the **standard preamble**. Every shell in this
+document starts with them, and they are repeated each time rather than assumed.
+
+**Both exports must precede `source scripts/common.sh`.** `common.sh` fills each
+one in only when it is unset, and everything downstream reads its *derived*
+values, so an export that arrives afterwards is ignored:
+
+- `HF_HOME` — the caches are 32 GB and will not fit beside the venv on a 60 GB
+  local disk. A shell that forgets it re-downloads Mistral into a second cache.
+- `INLET_OUTPUT_ROOT` — defaults to `<repo>/train_outputs`. Forget it in one
+  shell and that shell's checkpoints or eval JSON land there instead of under
+  `/root/outputs`, so §6 and §7 look in an empty directory. Use any local path
+  you like, but use the **same** one in every shell.
 
 **`setup_env.sh` can stop before installing anything**, on purpose. At the end
 of step `2/8`, before the venv exists, it runs `inlet.test_upstream_api` — an
@@ -132,7 +142,8 @@ Then the datasets:
 tmux new -s warm
 cd /root/inlet
 source .venv/bin/activate
-export HF_HOME=/workspace/hf_cache
+export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- see §3
+export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 WORKERS=4 ./scripts/warm_cache_paced.sh
 ```
@@ -231,11 +242,10 @@ arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp hum
 tmux new -s run1
 cd /root/inlet
 source .venv/bin/activate
-export HF_HOME=/workspace/hf_cache      # BEFORE common.sh, every shell -- see §3
+export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- see §3
+export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 
-mkdir -p /root/outputs
-VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
 ./scripts/train.sh 2 --run_name=run1 \
     --desc_slots=8 --cond=cross \
     --model_select_split=val/unseen \
@@ -310,7 +320,8 @@ Mistral into `~/.cache` rather than failing:
 ```bash
 cd /root/inlet
 source .venv/bin/activate
-export HF_HOME=/workspace/hf_cache
+export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- see §3
+export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 ```
 
