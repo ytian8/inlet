@@ -118,18 +118,20 @@ huggingface-cli download Alibaba-NLP/gte-large-en-v1.5
 huggingface-cli download Alibaba-NLP/new-impl        # <-- easy to miss
 ```
 
-**Why the export has to come before `common.sh`.** It does
+**The mechanism, since it is worth seeing once.** `common.sh` does
 
 ```bash
 export HF_HOME="${HF_HOME:-$INLET_ROOT/.hf}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 ```
 
-so `HF_HUB_CACHE` is fixed at the moment `common.sh` runs. Setting `HF_HOME`
-afterwards changes nothing the downloader consults: the 32 GB goes to
-`<repo>/.hf` while the directory you named stays at a few megabytes, and
-`huggingface-cli` reports success the whole way. Nothing announces it until
-`smoke.sh` refuses to start on a full disk, long after the download.
+so `HF_HUB_CACHE` is fixed at the moment `common.sh` runs, and nothing reads
+`HF_HOME` again. Setting it afterwards changes nothing the downloader consults:
+the 32 GB goes to `<repo>/.hf` while the directory you named stays at a few
+megabytes, and `huggingface-cli` reports success the whole way. Nothing
+announces it until `smoke.sh` refuses to start on a full disk, long after the
+download. `INLET_OUTPUT_ROOT` is derived the same way and fails the same way,
+just more quietly — an empty results directory rather than a full disk.
 
 `gte-large-en-v1.5` loads with `trust_remote_code=True`, which fetches its code
 from the separate repo `Alibaba-NLP/new-impl`. Downloading the model alone is
@@ -149,7 +151,7 @@ WORKERS=4 ./scripts/warm_cache_paced.sh
 ```
 
 (`tmux new` does inherit the environment of the shell that starts it, so the
-four lines are redundant *if* you never detach and never open a second shell.
+preamble is redundant *if* you never detach and never open a second shell.
 They are here because that assumption is the one that breaks: a reattached or
 second shell without them warms 12 GB into a different cache, and the failure
 does not surface until a later step reports a dataset it just downloaded as
