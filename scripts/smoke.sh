@@ -19,6 +19,24 @@ echo "### 0/4  does this checkout still fit the text-to-lora next to it? ###"
 "$PYBIN" -m inlet.test_upstream_api
 
 echo
+echo "### 0b/4  every script we invoke as ./scripts/x.sh is executable ###"
+# scripts/train.sh shipped as mode 100644 once. Everything up to step 3 passed,
+# then the smoke run died 15 minutes in on "Permission denied" -- and a fresh
+# clone is the only place it reproduces, so it survived every rerun on a box
+# where someone had already chmod'd it by hand. git tracks the bit, so this is
+# a one-second check for a defect that costs a quarter of an hour every time.
+xbit_bad=0
+for f in $(grep -rhoE '\./scripts/[a-z_]+\.sh' scripts/*.sh docs/*.md 2>/dev/null | sort -u); do
+  [[ -e "$f" ]] || continue
+  if [[ ! -x "$f" ]]; then
+    echo "  NOT EXECUTABLE: $f   (fix: git update-index --chmod=+x $f)"
+    xbit_bad=1
+  fi
+done
+(( xbit_bad )) && { echo "FAILED  a script this repo invokes by path cannot be run."; exit 1; }
+echo "  PASS"
+
+echo
 echo "### 1/4  no-GPU consistency checks (train path == eval path) ###"
 # Needs the per-task prompt-tuning baseline to compare against. If you do not
 # have that directory this check cannot run -- it is the only thing in the repo

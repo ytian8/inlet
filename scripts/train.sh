@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Inlet training. The ONLY thing that changes between machines is the GPU count.
 #
-#   ./scripts/train.sh 1  --run_name dbg --max_steps 200   # smoke, ~4 min
-#   ./scripts/train.sh 2  --run_name full
-#   ./scripts/train.sh 8  --run_name full
+#   ./scripts/train.sh 1  --run_name=dbg --max_steps=200   # smoke, ~4 min
+#   ./scripts/train.sh 2  --run_name=full
+#   ./scripts/train.sh 8  --run_name=full
+#
+# EVERY override is  --key=value,  never  --key value.  Upstream's parser builds
+# its override dict as arg.split("=")[1] (configs.py, parse_yaml_and_args), so a
+# space-separated form raises IndexError before anything loads. Booleans are
+# stricter still: the cast is  val in ["true","True"],  so --freeze_head=1 and
+# --freeze_head=yes are both silently FALSE. Write True/False exactly.
 #   # 64 GPUs = 8 nodes x 8. GLOBAL_TASKS must stay divisible by
 #   # TASKS_PER_RANK x world = 8 x 64 = 512, so the default 64 will NOT do:
 #   GLOBAL_TASKS=512 NNODES=8 NODE_RANK=$i MASTER_ADDR=<node0-ip> \

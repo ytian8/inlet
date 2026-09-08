@@ -220,7 +220,8 @@ arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp hum
 tmux new -s run1
 cd /root/inlet
 source .venv/bin/activate
-source scripts/common.sh          # sets HF_HOME/HF_HUB_CACHE; see §3
+export HF_HOME=/workspace/hf_cache      # BEFORE common.sh, every shell -- see §3
+source scripts/common.sh
 
 VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
 ./scripts/train.sh 2 --run_name=run1 \
@@ -240,6 +241,13 @@ space-separated `--max_steps 16000` raises `IndexError: list index out of range`
 in `configs.py` before training starts. Checking a flag against
 `HfArgumentParser` proves nothing — that is a different parser from the one
 `train_inlet.py` uses, and it accepts forms this one rejects.
+
+**Booleans are stricter than they look.** The cast is `val in ["true", "True"]`
+and everything else falls through to `False`, so `--freeze_head=1`,
+`--freeze_head=yes` and `--freeze_head=TRUE` all mean **False** — the run trains
+fine and is a duplicate of the control. Write `True` / `False` exactly. An
+unknown flag name, by contrast, is loud: `ValueError: Argument provided not
+found in dataclass`.
 
 **Run it under tmux, not `nohup`.** `warm_cache.sh` spawns 12 workers and died
 silently at 19/500 when the ssh session that started it closed, leaving no error
@@ -274,7 +282,16 @@ If it hangs: `pgrep -f train_inlet`, then `kill -USR1 <pid>` for **every** rank.
 ## 6. Evaluate
 
 Six checkpoints x 10 tasks x several scales is too much to run blindly. Two
-stages.
+stages. Open the eval shell the same way as the training one — the two lines
+are not optional here either, and an eval shell that forgets them re-downloads
+Mistral into `~/.cache` rather than failing:
+
+```bash
+cd /root/inlet
+source .venv/bin/activate
+export HF_HOME=/workspace/hf_cache
+source scripts/common.sh
+```
 
 ### Stage A — find the scale, on three tasks (~2-3 h)
 
