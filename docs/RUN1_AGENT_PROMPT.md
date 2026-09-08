@@ -25,9 +25,10 @@ deliver through a black-box embedding API — carries task adaptation as well as
 per-layer weight injection does.
 
 The blocker was that the generated prompt's **magnitude** grows during training
-until it destroys long-form generation: humaneval completions drop from 139
-words to 18. Multiplying the trained prompt by 0.5 at inference restores them
-and moves the 8-task average by +9.23, with no retraining.
+until it destroys long-form generation: humaneval completions go from 139 words
+under the frozen model to 18 under the trained prompt. Multiplying that same
+prompt by 0.5 at inference brings them back to 131 and moves the 8-task average
+by +9.23, with no retraining.
 
 **This run produces a step curve and a `prompt_norm` curve** with six
 checkpoints, so we can find where the *scaled* score peaks and how many steps
@@ -39,14 +40,14 @@ scored no better than a 1,000-step one.
 1. Setup, then **run `./scripts/smoke.sh 1` and do not skip it** (~20 min). It
    catches the class of bug this codebase has: runs that finish, show a falling
    loss, and report wrong numbers.
-2. Train with the command in RUN1.md §5 (~10 h on 2 GPUs). Check the four
+2. Train with the command in RUN1.md §5 (~10 h on 2 GPUs). Check the five
    startup lines it lists, especially `NCCL collective timeout : 4:00:00` —
    `0:10:00` means the job aborts ~10 minutes in with no Python traceback.
 3. Evaluate in two stages, RUN1.md §6. Stage A finds the scale on three tasks;
    Stage B runs the full ten at the chosen scale. Do not run all ten at several
    scales — the eval re-tokenises per scale and boolq alone is ~13 min each.
 
-## Three things that will bite you
+## Four things that will bite you
 
 - **`setup_env.sh` can stop at step `2/8` with no venv created.** That is
   intended: it is an AST check that this checkout still fits the `text-to-lora`
