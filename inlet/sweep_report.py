@@ -164,7 +164,7 @@ TASK_ORDER = ["arc_challenge", "arc_easy", "boolq", "hellaswag", "openbookqa",
               "piqa", "winogrande", "gsm8k", "mbpp", "humaneval"]
 
 
-def _paper_table(curves, labels):
+def _paper_table(curves, labels, scale=None):
     """Markdown, laid out the way the results table is: a row per task.
 
     The per-step view above is for reading a curve. This is for pasting next to
@@ -184,7 +184,12 @@ def _paper_table(curves, labels):
         return best.replace("hypermod_inlet_best_", "") if best else f"step {st:,}"
 
     hdr = ["Task", "zero-shot"] + [col(st) for st in steps]
+    # The scale belongs ON the table. A pasted block with no scale in it is
+    # indistinguishable from an unscaled one, and mixing the two in a document
+    # is the same error --scale exists to prevent, one step further downstream.
     print("\n=== paste-ready ===\n")
+    if scale is not None:
+        print(f"prompt scale x{scale:g}\n")
     print("| " + " | ".join(hdr) + " |")
     print("|" + "---|" * len(hdr))
 
@@ -306,7 +311,7 @@ def main(argv=None):
         print('    ./scripts/sweep_checkpoints.sh <run_dir> "' + " ".join(ZERO_SHOT) + '"')
 
     if a.paper:
-        _paper_table(curves, labels)
+        _paper_table(curves, labels, a.scale)
 
     if a.plot:
         _plot(curves, full, a.plot)
