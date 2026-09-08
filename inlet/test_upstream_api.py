@@ -60,7 +60,7 @@ NOT_TRAINER_FLAGS = {
     # its "next steps" block prints a real ./scripts/train.sh line, whose
     # --run_name and --checkpoint_steps SHOULD be checked -- these share the file.
     "exclude", "no_deps", "index_url", "upgrade", "recurse_submodules",
-    "depth", "init", "format", "query_gpu", "noheader",
+    "depth", "init", "format", "query_gpu", "noheader", "chmod",
 }
 
 
