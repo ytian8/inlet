@@ -272,8 +272,11 @@ permanent checkpoints will be kept at steps: [500, 1000, 2000, 4000, 8000, 16000
   something.
 - **`prompt_std_across_batch` warnings** — the generator is emitting nearly the
   same prompt for every description.
-- **`prompt_norm`** in the log, every 100 steps. This is the number the whole
-  run is about; expect it to start at 0.1543 and climb.
+- **`prompt_norm`**, on the `[step N] train:` line every 100 steps, next to
+  `varying_fraction` and `prompt_std_across_batch`. This is the number the whole
+  run is about; expect it to start at 0.1543 and climb. (`|P|` in the tqdm bar is
+  the same number, rounded to 2 dp.) Validation lines have the same shape, so
+  `grep -a "\[step " run1.train.log` reads both.
 
 If it hangs: `pgrep -f train_inlet`, then `kill -USR1 <pid>` for **every** rank.
 
@@ -307,7 +310,8 @@ Sweep three values bracketing that estimate, e.g. `1.0,0.5,0.35`.
 
 ```bash
 # read prompt_norm at, say, step 4000
-grep -ao "prompt_norm=[0-9.]*" /root/outputs/run1.train.log | sed -n '40p'
+grep -a "\[step 4000\] train:" /root/outputs/run1.train.log \
+    | grep -ao "prompt_norm=[0-9.]*"
 
 CKPT=/root/outputs/hyper_lora/run1/hypermod_inlet_step4000.pt
 VLLM_ENABLE_V1_MULTIPROCESSING=0 \

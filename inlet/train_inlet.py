@@ -1115,6 +1115,17 @@ def main(args):
                 # exact -- validation loss/accuracy -- come from rank 0 only.
                 if is_main:
                     wandb.log(logged, step=curstep)
+                    # The train-side diagnostics only ever existed in wandb and
+                    # in the tqdm bar (`|P| 0.15`), so `grep prompt_norm= run.log`
+                    # -- which the runbook and overnight_arms.sh both tell you to
+                    # run -- matched nothing, on every run, silently. prompt_norm
+                    # is the number this whole line of work turns on. Same
+                    # `[step N] split: k=v` shape validation already uses, so one
+                    # grep reads both.
+                    _diag = {k.split("/", 1)[1]: v for k, v in logged.items()
+                             if k.startswith("train/")}
+                    logger.info(f"[step {curstep}] train: " + " ".join(
+                        f"{k}={v:.4f}" for k, v in sorted(_diag.items())))
                     # prompt_std_across_batch is the collapse alarm: if the
                     # generator stops distinguishing descriptions it trends to 0
                     # long before any eval would show it.
