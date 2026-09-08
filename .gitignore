@@ -16,6 +16,12 @@ warm_failures.json
 *.token
 hf_token*
 
+# Results stay local: this repo is code plus the Run 1 handoff docs, nothing
+# else. These were published once by a `git add -A docs/` that swept up far
+# more than the one doc it was aimed at. Ignoring them makes that particular
+# accident impossible to repeat; the rest of the defence is not using `add -A`.
+docs/measurements/overnight/
+
 # upstream checkout (setup_env.sh clones it here); never ours to commit
 third_party/
 # local CPU-only venv for running the no-GPU gates without renting a box
