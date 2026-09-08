@@ -47,12 +47,18 @@ COMMON=(
 
 # name -> the single flag that defines the arm, and the field it must land on.
 #
-# EVERY flag must be `--key=value`. Upstream's parser is not argparse: it does
-#   other_args = {arg.split("=")[0].strip("-"): arg.split("=")[1] ...}
-# so a bare `--freeze_head`, or `--equally_weight_sample False` as two tokens,
-# raises IndexError before training starts. Verifying these against
+# EVERY override must be written as  --<name>=<value>.  Upstream's parser is
+# not argparse: it builds its override dict as arg.split("=")[1], so a bare
+# --freeze_head, or --equally_weight_sample passed as two space-separated
+# tokens, raises IndexError before training starts. Verifying these against
 # HfArgumentParser is NOT sufficient -- that is a different parser from the one
 # train_inlet.py actually uses, and it accepts forms this one rejects.
+#
+# Keep placeholders in angle brackets, never a literal word after two dashes:
+# inlet.test_upstream_api scans this file's COMMENTS as well as its code for
+# flag tokens (deliberately -- that is how it catches documented flags that no
+# longer exist), so an illustrative one here is checked against InletArguments
+# like any other, fails, and makes setup_env.sh refuse to install anything.
 declare -A ARM_FLAGS=(
   [control]=""
   [ews]="--equally_weight_sample=False"

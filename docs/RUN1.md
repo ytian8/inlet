@@ -47,22 +47,52 @@ caches.
 
 ## 3. Setup
 
+**Clone onto local disk, not a network volume.** The venv goes in
+`<repo>/.venv`, and pip installing onto a FUSE-mounted network volume wedges
+silently — the I/O counters freeze and it looks like a slow download.
+`setup_env.sh` refuses outright if it detects this. On a RunPod box `/root` is
+local and `/workspace` is the network volume, so:
+
 ```bash
+cd /root
 git clone https://github.com/ytian8/inlet.git && cd inlet
 bash scripts/setup_env.sh                      # ~15 min, no GPU needed
 source .venv/bin/activate
 source scripts/common.sh
 ```
 
-Then the model weights. **Three repos, not two:**
+**`setup_env.sh` can stop before installing anything**, on purpose. Its step 0
+runs `inlet.test_upstream_api`, an AST-only check that every symbol, call
+signature and `--flag` in this checkout still matches the `text-to-lora` next
+to it. If it fails you will see
+
+```
+FAILED  1 problem(s). This checkout does not fit the text-to-lora next to it.
+```
+
+and **no venv is created**. That is the intended behaviour — the alternative is
+the same crash 20 minutes and 13 GB later. Report the failure rather than
+working around it.
+
+**If you pipe the output, `$?` is the pipe's exit code, not the script's.**
+`bash scripts/setup_env.sh | tee setup.log; echo $?` prints tee's status and
+will say `0` on a failed setup. Use `${PIPESTATUS[0]}`, or just check that
+`.venv/` exists and that the log ends with step `8/8`.
+
+Then the model weights. **Three repos, not two.** Put `HF_HOME` on a disk with
+~30 GB free — the network volume is fine for this, it is read-mostly:
 
 ```bash
-export HF_HOME=/path/on/a/big/disk/hf
+export HF_HOME=/workspace/hf          # anywhere with room; keep it consistent
+mkdir -p $HF_HOME
 huggingface-cli download mistralai/Mistral-7B-Instruct-v0.2 \
     --exclude "*.bin" "*.pth" "*.gguf" "*.msgpack" "*.h5"
 huggingface-cli download Alibaba-NLP/gte-large-en-v1.5
 huggingface-cli download Alibaba-NLP/new-impl        # <-- easy to miss
 ```
+
+Export the same `HF_HOME` in **every** shell afterwards (warm, train, eval);
+otherwise each one re-downloads into `~/.cache`.
 
 `gte-large-en-v1.5` loads with `trust_remote_code=True`, which fetches its code
 from the separate repo `Alibaba-NLP/new-impl`. Downloading the model alone is
