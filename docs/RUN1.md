@@ -193,19 +193,37 @@ that just succeeded. Do not read it as current state.
 ### Pre-flight
 
 ```bash
-./scripts/smoke.sh 1        # ~20 min. Do not skip.
+./scripts/smoke.sh 1        # ~30 min on one A100. Do not skip.
 ```
 
 It catches the class of bug this codebase actually has: runs that complete, show
-a falling loss, and report wrong numbers. Reference values from a known-good
-box, for comparison:
+a falling loss, and report wrong numbers. Most of the half-hour is the two
+validations inside the 200-step training run — `smoke.sh` deliberately does not
+lower `val_max_batches`, so this is the same validation the real run does.
+Reference values, measured on 1x A100 on 2026-09-08:
 
 ```
 test_accum        9.070e-08     (known-bad ordering 3.1e-01)
 test_ddp_equiv    8.918e-08     (summed-instead-of-averaged 3.3e-01)
 gate_m0           |delta| = 0.000e+00
 peak GPU memory   14.58 GiB
+step 4/4          got 65.61, expected 65.70 -> PASS  (arc_challenge zero-shot)
 ```
+
+The last one is the whole eval path — engine, sequence assembly, scoring —
+checked against a published number. If it passes, an eval result that later
+looks wrong is not the harness.
+
+**A vLLM `ERROR` after the result is written is teardown noise, not a failure:**
+
+```
+wrote .../arc_challenge__zero_prompt.json
+ERROR ... Engine core proc EngineCore_DP0 died unexpectedly, shutting down client.
+smoke OK -- ...
+```
+
+The score is already written by then. Read `SMOKE_EXIT` / `smoke OK`, not the
+last line that says ERROR.
 
 ---
 
