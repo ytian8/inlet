@@ -8,7 +8,13 @@ Train and evaluate one Inlet model on our cluster.
 
 Repo: https://github.com/ytian8/inlet (public)
 Follow `docs/RUN1.md`. It has every command. **Make sure you are on a commit at
-or after `a5f8d88`** — earlier ones fail on the very first command.
+or after `52fb6ec`** — earlier ones fail partway through setup or log the run's
+headline number nowhere.
+
+Every command in RUN1.md was run end to end on a fresh A100 box on 2026-09-08,
+which is where the traps below come from. Budget **~90 GB of disk** (the caches
+alone are 32 GB) and note that §3 puts `HF_HOME` on a separate volume for
+exactly that reason.
 
 ## What this run is for
 
@@ -45,9 +51,17 @@ scored no better than a 1,000-step one.
 - **`setup_env.sh` can stop at step 0 with no venv created.** That is intended:
   it is an AST check that this checkout still fits the `text-to-lora` beside
   it. Report the failure, do not work around it.
-- **Do not set `HF_HOME` after sourcing `common.sh`.** `HF_HUB_CACHE` is fixed
-  when `common.sh` runs, so a later `HF_HOME` is ignored and 20 GB lands
-  somewhere you did not ask for — while the download reports success.
+- **Export `HF_HOME` BEFORE sourcing `common.sh`, in every shell** — setup,
+  warm, train, eval. `HF_HUB_CACHE` is fixed at the moment `common.sh` runs, so
+  a later `HF_HOME` is ignored: 32 GB lands somewhere you did not ask for while
+  the download reports success, and nothing complains until a later step runs
+  out of disk. A shell that forgets the export re-downloads Mistral instead.
+
+- **Every override is `--<key>=<value>`.** Upstream's parser splits on `=`, so
+  a space-separated `--max_steps 16000` raises `IndexError` before anything
+  loads. Booleans are worse than that: the cast is `val in ["true","True"]`, so
+  `--freeze_head=1` and `--freeze_head=yes` both mean **False** and the run
+  trains happily as a duplicate of the control.
 - **Long jobs need tmux, not `nohup`.** `warm_cache.sh` spawns 12 workers and
   died silently at 19/500 when the ssh session that started it closed, leaving
   no error in the log.
