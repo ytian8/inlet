@@ -340,8 +340,8 @@ def main() -> None:
     if args.checkpoint and args.tasks and set(args.tasks) != {args.task}:
         raise SystemExit(
             "--tasks with --checkpoint would score "
-            f"{sorted(set(args.tasks) - {args.task})} using {args.task!r}'s "
-            "description prompt.\n"
+            f"{sorted(set(args.tasks) - {args.task})} with the prompt generated "
+            f"from {args.task}'s description.\n"
             "  Prompts are generated from --task alone; the engine is built once "
             "and reused.\n"
             f"  Loop instead:  TASKS=\"{' '.join(args.tasks)}\" ./scripts/eval.sh "
