@@ -79,20 +79,32 @@ working around it.
 will say `0` on a failed setup. Use `${PIPESTATUS[0]}`, or just check that
 `.venv/` exists and that the log ends with step `8/8`.
 
-Then the model weights. **Three repos, not two.** Put `HF_HOME` on a disk with
-~30 GB free — the network volume is fine for this, it is read-mostly:
+Then the model weights. **Three repos, not two:**
 
 ```bash
-export HF_HOME=/workspace/hf          # anywhere with room; keep it consistent
-mkdir -p $HF_HOME
 huggingface-cli download mistralai/Mistral-7B-Instruct-v0.2 \
     --exclude "*.bin" "*.pth" "*.gguf" "*.msgpack" "*.h5"
 huggingface-cli download Alibaba-NLP/gte-large-en-v1.5
 huggingface-cli download Alibaba-NLP/new-impl        # <-- easy to miss
 ```
 
-Export the same `HF_HOME` in **every** shell afterwards (warm, train, eval);
-otherwise each one re-downloads into `~/.cache`.
+**Do not set `HF_HOME` after sourcing `common.sh`.** `common.sh` does
+
+```bash
+export HF_HOME="${HF_HOME:-$INLET_ROOT/.hf}"
+export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
+```
+
+so `HF_HUB_CACHE` is fixed at the moment `common.sh` runs. Exporting `HF_HOME`
+afterwards changes nothing the downloader looks at, and the 20 GB lands in
+`<repo>/.hf` while you believe it went where you asked. It fails quietly: the
+download reports success and the directory you named stays nearly empty.
+
+The default (`<repo>/.hf`, so local disk) is correct on a box with ~60 GB free
+— the caches come to about 20 GB of models plus a few GB of datasets, on top of
+a ~15 GB venv. **If you need them elsewhere, export `HF_HOME` BEFORE sourcing
+`common.sh`**, and export it that way in every later shell too — `common.sh`
+only fills it in when unset.
 
 `gte-large-en-v1.5` loads with `trust_remote_code=True`, which fetches its code
 from the separate repo `Alibaba-NLP/new-impl`. Downloading the model alone is
@@ -174,9 +186,9 @@ arc_challenge arc_easy boolq hellaswag openbookqa piqa winogrande gsm8k mbpp hum
 
 ```bash
 tmux new -s run1
+cd /root/inlet
 source .venv/bin/activate
-source scripts/common.sh
-export HF_HOME=/path/on/a/big/disk/hf
+source scripts/common.sh          # sets HF_HOME/HF_HUB_CACHE; see §3
 
 VENV=$PWD/.venv INLET_OUTPUT_ROOT=/root/outputs \
 ./scripts/train.sh 2 --run_name=run1 \
