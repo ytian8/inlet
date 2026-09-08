@@ -81,10 +81,10 @@ local disk. Use this same two-line order in **every** shell afterwards (warm,
 train, eval) — `common.sh` only fills the variable in when it is unset, so a
 shell that forgets it silently uses a different cache and re-downloads 20 GB.
 
-**`setup_env.sh` can stop before installing anything**, on purpose. Its step 0
-runs `inlet.test_upstream_api`, an AST-only check that every symbol, call
-signature and `--flag` in this checkout still matches the `text-to-lora` next
-to it. If it fails you will see
+**`setup_env.sh` can stop before installing anything**, on purpose. At the end
+of step `2/8`, before the venv exists, it runs `inlet.test_upstream_api` — an
+AST-only check that every symbol, call signature and flag name in this checkout
+still matches the `text-to-lora` next to it. If it fails you will see
 
 ```
 FAILED  1 problem(s). This checkout does not fit the text-to-lora next to it.

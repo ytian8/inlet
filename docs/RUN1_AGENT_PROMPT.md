@@ -48,9 +48,10 @@ scored no better than a 1,000-step one.
 
 ## Three things that will bite you
 
-- **`setup_env.sh` can stop at step 0 with no venv created.** That is intended:
-  it is an AST check that this checkout still fits the `text-to-lora` beside
-  it. Report the failure, do not work around it.
+- **`setup_env.sh` can stop at step `2/8` with no venv created.** That is
+  intended: it is an AST check that this checkout still fits the `text-to-lora`
+  beside it, run before anything is installed. Report the failure, do not work
+  around it.
 - **Export `HF_HOME` BEFORE sourcing `common.sh`, in every shell** — setup,
   warm, train, eval. `HF_HUB_CACHE` is fixed at the moment `common.sh` runs, so
   a later `HF_HOME` is ignored: 32 GB lands somewhere you did not ask for while
