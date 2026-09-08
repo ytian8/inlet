@@ -17,10 +17,15 @@ warm_failures.json
 hf_token*
 
 # Results stay local: this repo is code plus the Run 1 handoff docs, nothing
-# else. These were published once by a `git add -A docs/` that swept up far
-# more than the one doc it was aimed at. Ignoring them makes that particular
-# accident impossible to repeat; the rest of the defence is not using `add -A`.
+# else. Both of these were published by a `git add docs/` -- a DIRECTORY, not a
+# file -- that swept up far more than the one doc it was aimed at. It happened
+# twice, the second time one commit after this comment was first written, which
+# is why OVERNIGHT.md is untracked now rather than merely kept-in-sync: a
+# tracked file whose working copy permanently differs from HEAD cannot be
+# protected by .gitignore, and every `add -A` / `add <dir>` / `commit -a` puts
+# it back. Stage explicit file paths.
 docs/measurements/overnight/
+docs/OVERNIGHT.md
 
 # upstream checkout (setup_env.sh clones it here); never ours to commit
 third_party/
