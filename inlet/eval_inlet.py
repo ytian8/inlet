@@ -444,8 +444,14 @@ def main() -> None:
         lengths = {k: completion_stats(v) for k, v in results.items()}
 
         os.makedirs(args.out_dir, exist_ok=True)
-        _n_eval = sum(1 for k in prompts if k.startswith("eval_descs"))
-        _has_random = any(k.startswith("random_descs") for k in prompts)
+        # Count DESCRIPTIONS, not arms. With --prompt-scales every description
+        # becomes one arm per scale, so counting arms made a single-description
+        # run with 3+ scales report reported_protocol=true -- which is the exact
+        # confusion this block exists to prevent, and it mislabelled every file
+        # from the first 16k-step sweep (1 description x 4 scales -> "4").
+        _desc_tags = {k.rsplit("@s", 1)[0] for k in prompts}
+        _n_eval = sum(1 for k in _desc_tags if k.startswith("eval_descs"))
+        _has_random = any(k.startswith("random_descs") for k in _desc_tags)
         out_path = os.path.join(args.out_dir, f"{stem}.json")
         with open(out_path, "w") as f:
             json.dump(
