@@ -54,8 +54,9 @@ NOT_TRAINER_FLAGS = {
     "flag",
     # other inlet entry points invoked by the same script: smoke.sh runs
     # test_consistency_inlet --task, and eval.sh --zero-prompt, before it ever
-    # reaches train.sh
-    "task", "zero_prompt",
+    # reaches train.sh; head_lr_probe.sh runs probe_prompt --checkpoint --out
+    # between its two training launches
+    "task", "zero_prompt", "checkpoint", "out",
     # pip / git / huggingface-cli / nvidia-smi. setup_env.sh is in scope because
     # its "next steps" block prints a real ./scripts/train.sh line, whose
     # --run_name and --checkpoint_steps SHOULD be checked -- these share the file.

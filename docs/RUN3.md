@@ -1,26 +1,35 @@
 # Run 3 — full step budget, faster head
 
-**Two training runs, one per 2xA100 machine.** Training only — do not evaluate
-benchmarks during either. The scale sweep and the benchmark table come
-afterwards, from the checkpoints.
+**One machine, one command.** Start it and leave; it decides for itself whether
+to commit the 4.6 days.
+
+```bash
+./scripts/head_lr_probe.sh
+```
+
+It probes `--head_lr_mult=20` and `60` to step 4,000 each (~3 h apiece), then
+either launches the full 147,500-step run at whichever won, or stops and tells
+you the premise was wrong. Training only — no benchmark eval during any of it.
 
 Setup, shell preamble and traps: `docs/RUN1.md` §2 and §3. Nothing changes there.
 
-| | `--head_lr_mult` | machine |
+| | `--head_lr_mult` | when |
 |---|---|---|
 | Run 1 (already done) | 1 | — |
-| **run3a** | **20** | machine 1 |
-| **run3b** | **60** | machine 2 |
+| probe | 20, then 60 | hours 0-6 |
+| the real run | whichever won | hours 6-116 |
 
-Everything else is identical across all three, so this is a clean learning-rate
-sweep on the description path — which is the diagnosed bottleneck (§1) and the
-one number this whole plan rests on. `RESULTS.md` recommends 10-30, but the
+Everything else is identical across all of them, so this is a clean
+learning-rate sweep on the description path — the diagnosed bottleneck (§1) and
+the one number this plan rests on. `RESULTS.md` recommends 10-30, but the
 per-task prompt-tuning baseline needed **3e-3, a 120x multiple**, so 20 may be
 too conservative and 60 is the hedge. Three points on that axis is also the
 ablation figure the paper needs.
 
-Start both now. §3's probe check kills both within three hours if the premise is
-wrong.
+**Why two probes and not one.** "mult=20 did not separate" is either *the
+diagnosis is wrong* or *20 is too small*, and those want opposite next steps. One
+value cannot tell them apart; two can. The second probe costs three hours
+against a 4.6-day commitment.
 
 ---
 
@@ -80,28 +89,37 @@ and a single fixed norm loses points on the short-output side.
 
 ## 2. Train
 
-Run this on machine 1 with `MULT=20 NAME=run3a`, and on machine 2 with
-`MULT=60 NAME=run3b`.
+`head_lr_probe.sh` does all of this. The commands are here so you can read what
+it will run, and so you can drive it by hand if you prefer.
+
+Each probe starts a **real** `--max_steps=147500` run and is killed once
+`hypermod_inlet_step4000.pt` is on disk. A short `--max_steps=4000` job would
+measure something else entirely: warmup is 20% of `max_steps`, so step 4,000 is
+at lr factor 0.99 in a short run and 0.136 in the real one. Nothing is wasted —
+the first 4,000 steps are the same steps either way.
 
 ```bash
-MULT=20; NAME=run3a          # machine 2: MULT=60; NAME=run3b
-
-tmux new -s $NAME
+tmux new -s run3
 cd /root/inlet
 source .venv/bin/activate
 export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- RUN1.md §3
 export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 
-./scripts/train.sh 2 --run_name=$NAME \
+./scripts/head_lr_probe.sh
+```
+
+The run it commits to is:
+
+```bash
+./scripts/train.sh 2 --run_name=run3_m<MULT> \
     --desc_slots=8 --cond=cross \
     --model_select_split=val/unseen \
-    --head_lr_mult=$MULT \
+    --head_lr_mult=<MULT> \
     --max_steps=147500 \
     --checkpoint_steps=1000,2000,4000,8000,16000,24000,32000,48000,64000,96000,128000,147500 \
     --val_freq=4000 \
-    --val_max_batches=15 \
-  2>&1 | tee /root/outputs/$NAME.train.log
+    --val_max_batches=15
 ```
 
 **~109 hours (4.6 days)** on 2×A100 at Run 1's measured 2.67 s/step.
@@ -116,13 +134,14 @@ Startup: check the same five lines as RUN1.md §5, plus one new one:
 optimizer: base lr=2.500e-05  head lr=5.000e-04 (head_lr_mult=20.0)
 ```
 
-`5.000e-04` for run3a, `1.500e-03` for run3b. **If the line is missing or says
+`5.000e-04` at mult=20, `1.500e-03` at mult=60. **If the line is missing or says
 `head_lr_mult=1.0`, stop — the flag did not land and the run is a duplicate of
 Run 1.**
 
-run3b's head learning rate is high enough to diverge. If `sft_loss` goes to NaN
-or climbs for more than a few hundred steps, report it and stop that run — it is
-a result about the usable range, not a failure of the plan.
+The mult=60 head learning rate is high enough to diverge. If `sft_loss` goes to
+NaN or climbs for more than a few hundred steps during that probe, that probe
+simply loses and the script moves on — it is a result about the usable range,
+not a failure of the plan. Report it.
 
 ---
 
@@ -134,8 +153,8 @@ they appear:
 ```bash
 for S in 1000 2000 4000; do
   python -m inlet.probe_prompt \
-      --checkpoint $INLET_OUTPUT_ROOT/hyper_lora/$NAME/hypermod_inlet_step$S.pt \
-      --task arc_challenge --out /root/outputs/${NAME}_probe_step$S.json
+      --checkpoint $INLET_OUTPUT_ROOT/hyper_lora/run3_m<MULT>/hypermod_inlet_step$S.pt \
+      --task arc_challenge --out /root/outputs/probe_step$S.json
 done
 ```
 
@@ -151,12 +170,10 @@ at step 2,000 is a factor 0.068, against Run 1's 0.625 at the same step. run3
 has to separate faster on a tenth of the learning rate. If it cannot, the
 optimization diagnosis is wrong, and four more days will not fix it.
 
-**If the step-4,000 probe is at or below Run 1's 0.0516 on BOTH runs, stop both
-and report that.** It is a real result: it says the amortization gap is not an
-optimization speed problem, and no amount of further training fixes it.
-
-If only one of the two clears the bar, keep that one and restart the other at a
-multiple between the two.
+`head_lr_probe.sh` applies this automatically and **refuses to start the long
+run** if neither probe clears the bar (exit 3). That refusal is a result, not a
+failure: it says the amortization gap is not an optimization speed problem, and
+no amount of further training at these settings fixes it. Report it as such.
 
 ---
 
@@ -175,7 +192,7 @@ cost the run. Record the value at each checkpoint step:
 ```bash
 for S in 1000 2000 4000 8000 16000 24000 32000 48000 64000 96000 128000 147500; do
   printf "%7s  " "$S"
-  grep -a "\[step $S\] train:" /root/outputs/$NAME.train.log \
+  grep -a "\[step $S\] train:" /root/outputs/run3_m*.train.log \
     | tail -1 | grep -ao "prompt_norm=[0-9.]*" || echo "(none)"
 done
 ```
@@ -190,8 +207,8 @@ checkpoint.
 
 - **Do not evaluate benchmarks during training.** `val_freq=4000` already costs
   enough; benchmark eval belongs in the sweep afterwards, on chosen checkpoints.
-- **Do not add a third changed variable.** The only difference between run3a and
-  run3b is `--head_lr_mult`. `--contrastive`, `--l2_reg_prompt`,
+- **Do not add a third changed variable.** The only thing that varies between
+  the two probes is `--head_lr_mult`. `--contrastive`, `--l2_reg_prompt`,
   `--prompt_diversity` and `--desc_slots=32` are candidates for the round after
   this one; putting any of them in here makes the result unattributable.
   `--desc_slots=32` in particular is downstream of this run — `RESULTS.md`:
