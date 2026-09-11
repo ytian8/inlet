@@ -28,7 +28,7 @@ wrong.
 
 Exactly **two** things differ from Run 1. Run 1 is the control.
 
-### `--head_lr_mult=20`
+### `--head_lr_mult` (20 and 60)
 
 `RESULTS.md` diagnosed this before Run 1 was designed and it has never been
 tested: the head that reads the description trains at T2L's `lr=2.5e-5`, while
@@ -48,7 +48,8 @@ The head is zero-initialised, so the whole run is spent climbing out of that
 initialisation — and it had not finished at 16,000.
 
 The flag already exists (`train_inlet.py:177`, separate optimizer param group at
-:880). `base` keeps `lr`, the head gets `lr × 20`.
+:880). `base` keeps `lr`; everything else — the encoder MLP, the cross-attention,
+the output head, i.e. the only path the description travels — gets `lr × mult`.
 
 ### `--max_steps=147500`
 
@@ -189,10 +190,14 @@ checkpoint.
 
 - **Do not evaluate benchmarks during training.** `val_freq=4000` already costs
   enough; benchmark eval belongs in the sweep afterwards, on chosen checkpoints.
-- **Do not add a second changed variable.** `--contrastive`, `--l2_reg_prompt`,
-  `--prompt_diversity` and `--desc_slots=32` are all candidates for later runs;
-  putting any of them in here makes the result unattributable. If a second pair
-  of GPUs is free, run one of them as a *separate* job against the same control.
+- **Do not add a third changed variable.** The only difference between run3a and
+  run3b is `--head_lr_mult`. `--contrastive`, `--l2_reg_prompt`,
+  `--prompt_diversity` and `--desc_slots=32` are candidates for the round after
+  this one; putting any of them in here makes the result unattributable.
+  `--desc_slots=32` in particular is downstream of this run — `RESULTS.md`:
+  *"widening the input to a head that is barely learning does not help"* — and it
+  also needs the description cache rebuilt at 32x1024, which the trainer refuses
+  to do silently.
 - **Do not change `--n_train_ds`, the LR, or the global batch.** They are what
   make an Inlet number comparable to a T2L number.
 - **Do not delete intermediate checkpoints** to save disk. 2 GB is cheaper than
