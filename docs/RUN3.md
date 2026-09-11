@@ -1,9 +1,26 @@
 # Run 3 — full step budget, faster head
 
-One training run. **Training only — do not evaluate benchmarks during it.** The
-scale sweep and the benchmark table come afterwards, from the checkpoints.
+**Two training runs, one per 2xA100 machine.** Training only — do not evaluate
+benchmarks during either. The scale sweep and the benchmark table come
+afterwards, from the checkpoints.
 
 Setup, shell preamble and traps: `docs/RUN1.md` §2 and §3. Nothing changes there.
+
+| | `--head_lr_mult` | machine |
+|---|---|---|
+| Run 1 (already done) | 1 | — |
+| **run3a** | **20** | machine 1 |
+| **run3b** | **60** | machine 2 |
+
+Everything else is identical across all three, so this is a clean learning-rate
+sweep on the description path — which is the diagnosed bottleneck (§1) and the
+one number this whole plan rests on. `RESULTS.md` recommends 10-30, but the
+per-task prompt-tuning baseline needed **3e-3, a 120x multiple**, so 20 may be
+too conservative and 60 is the hedge. Three points on that axis is also the
+ablation figure the paper needs.
+
+Start both now. §3's probe check kills both within three hours if the premise is
+wrong.
 
 ---
 
@@ -62,23 +79,28 @@ and a single fixed norm loses points on the short-output side.
 
 ## 2. Train
 
+Run this on machine 1 with `MULT=20 NAME=run3a`, and on machine 2 with
+`MULT=60 NAME=run3b`.
+
 ```bash
-tmux new -s run3
+MULT=20; NAME=run3a          # machine 2: MULT=60; NAME=run3b
+
+tmux new -s $NAME
 cd /root/inlet
 source .venv/bin/activate
 export HF_HOME=/workspace/hf_cache        # both BEFORE common.sh -- RUN1.md §3
 export INLET_OUTPUT_ROOT=/root/outputs
 source scripts/common.sh
 
-./scripts/train.sh 2 --run_name=run3 \
+./scripts/train.sh 2 --run_name=$NAME \
     --desc_slots=8 --cond=cross \
     --model_select_split=val/unseen \
-    --head_lr_mult=20 \
+    --head_lr_mult=$MULT \
     --max_steps=147500 \
     --checkpoint_steps=1000,2000,4000,8000,16000,24000,32000,48000,64000,96000,128000,147500 \
     --val_freq=4000 \
     --val_max_batches=15 \
-  2>&1 | tee /root/outputs/run3.train.log
+  2>&1 | tee /root/outputs/$NAME.train.log
 ```
 
 **~109 hours (4.6 days)** on 2×A100 at Run 1's measured 2.67 s/step.
@@ -93,8 +115,13 @@ Startup: check the same five lines as RUN1.md §5, plus one new one:
 optimizer: base lr=2.500e-05  head lr=5.000e-04 (head_lr_mult=20.0)
 ```
 
-**If that line is missing or says `head_lr_mult=1.0`, stop — the flag did not
-land and the run is a duplicate of Run 1.**
+`5.000e-04` for run3a, `1.500e-03` for run3b. **If the line is missing or says
+`head_lr_mult=1.0`, stop — the flag did not land and the run is a duplicate of
+Run 1.**
+
+run3b's head learning rate is high enough to diverge. If `sft_loss` goes to NaN
+or climbs for more than a few hundred steps, report it and stop that run — it is
+a result about the usable range, not a failure of the plan.
 
 ---
 
@@ -106,8 +133,8 @@ they appear:
 ```bash
 for S in 1000 2000 4000; do
   python -m inlet.probe_prompt \
-      --checkpoint $INLET_OUTPUT_ROOT/hyper_lora/run3/hypermod_inlet_step$S.pt \
-      --task arc_challenge --out /root/outputs/probe_step$S.json
+      --checkpoint $INLET_OUTPUT_ROOT/hyper_lora/$NAME/hypermod_inlet_step$S.pt \
+      --task arc_challenge --out /root/outputs/${NAME}_probe_step$S.json
 done
 ```
 
@@ -123,9 +150,12 @@ at step 2,000 is a factor 0.068, against Run 1's 0.625 at the same step. run3
 has to separate faster on a tenth of the learning rate. If it cannot, the
 optimization diagnosis is wrong, and four more days will not fix it.
 
-**If the step-4,000 probe is at or below Run 1's 0.0516, stop the run and report
-that.** It is a real result: it says the amortization gap is not an optimization
-speed problem.
+**If the step-4,000 probe is at or below Run 1's 0.0516 on BOTH runs, stop both
+and report that.** It is a real result: it says the amortization gap is not an
+optimization speed problem, and no amount of further training fixes it.
+
+If only one of the two clears the bar, keep that one and restart the other at a
+multiple between the two.
 
 ---
 
@@ -144,7 +174,7 @@ cost the run. Record the value at each checkpoint step:
 ```bash
 for S in 1000 2000 4000 8000 16000 24000 32000 48000 64000 96000 128000 147500; do
   printf "%7s  " "$S"
-  grep -a "\[step $S\] train:" /root/outputs/run3.train.log \
+  grep -a "\[step $S\] train:" /root/outputs/$NAME.train.log \
     | tail -1 | grep -ao "prompt_norm=[0-9.]*" || echo "(none)"
 done
 ```
