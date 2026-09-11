@@ -276,7 +276,111 @@ checkpoint.
 
 ---
 
-## 6. Report back
+## 6. When training finishes: does it beat T2L?
+
+This is the question the run exists to answer, so finish it here rather than
+handing back checkpoints.
+
+### 6a. Which checkpoints are reportable
+
+Two, and only two:
+
+```bash
+CKPT_SEL=$INLET_OUTPUT_ROOT/hyper_lora/$RUN/hypermod_inlet_best_val_unseen.pt
+CKPT_END=$INLET_OUTPUT_ROOT/hyper_lora/$RUN/hypermod_inlet_step147500.pt
+```
+
+`best_val_unseen` is chosen on validation loss; `step147500` is the last one and
+is fixed in advance. **Any other checkpoint is diagnostic only** — Run 1 found
+its best on the test set, which is exactly why that one cannot be reported.
+
+### 6b. Derive the scale from `prompt_norm`, do not guess it
+
+Long-form generation survives while the prompt's effective per-token norm stays
+near **0.13** and collapses above roughly a real token embedding's 0.1543
+(§2.2 of `docs/RUN1_EVIDENCE.md`). So for each checkpoint:
+
+```bash
+for C in $CKPT_SEL $CKPT_END; do
+  S=$(basename $C | sed 's/.*step\([0-9]*\)\.pt/\1/')
+  N=$(grep -a "\[step $S\] train:" $INLET_OUTPUT_ROOT/${RUN}.train.log \
+      | tail -1 | grep -ao "prompt_norm=[0-9.]*" | cut -d= -f2)
+  echo "$C  prompt_norm=$N  suggested long-output scale = $(python3 -c "print(f'{0.13/float('$N'):.2f}')")"
+done
+```
+
+Sweep three values bracketing that: the suggestion, and roughly ±40%. Short-output
+tasks want the other end — include `1.0` and, if `arc_challenge` is still rising
+there, `1.3`.
+
+### 6c. Stage A — pick the scales (3 fast tasks, ~2 h)
+
+```bash
+TASKS="arc_challenge gsm8k humaneval" \
+EXTRA_EVAL_ARGS="--prompt-scales <the 4-5 candidates> --max-eval-descs 1 --skip-random-descs" \
+    ./scripts/eval.sh $CKPT_END
+python -m inlet.sweep_report $INLET_OUTPUT_ROOT/eval_results_inlet --scale <each>
+```
+
+Pick **one scale for short-output tasks and one for long-output**, from these
+three tasks only. Record both, and record that they were chosen here.
+
+### 6d. Stage B — the reported table (10 tasks, ~12-20 h)
+
+Reported protocol: three real descriptions and three junk ones, which is
+`eval.sh` with **neither** `--max-eval-descs` **nor** `--skip-random-descs`.
+
+```bash
+SHORT="arc_challenge arc_easy openbookqa piqa winogrande"
+LONG="gsm8k mbpp humaneval"
+SLOW="boolq hellaswag"          # short-output, but 10k+ examples each
+
+for C in $CKPT_END $CKPT_SEL; do
+  TASKS="$SHORT" EXTRA_EVAL_ARGS="--prompt-scales <short scale>" ./scripts/eval.sh $C
+  TASKS="$LONG"  EXTRA_EVAL_ARGS="--prompt-scales <long scale>"  ./scripts/eval.sh $C
+  TASKS="$SLOW"  EXTRA_EVAL_ARGS="--prompt-scales <short scale>" ./scripts/eval.sh $C
+done
+```
+
+Fast tasks first so an interruption still leaves the cells that matter.
+
+### 6e. The two numbers that decide it
+
+```bash
+python -m inlet.sweep_report  $INLET_OUTPUT_ROOT/eval_results_inlet --scale <short scale> --paper
+python -m inlet.desc_control  $INLET_OUTPUT_ROOT/eval_results_inlet --scale <short scale>
+```
+
+Against this, which is our own measurement of the released T2L checkpoint on the
+same harness — not the paper's numbers:
+
+| | arc_c | arc_e | boolq | hella | obqa | piqa | wino | gsm8k | mbpp | humaneval | Avg10 | Avg9\* |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| zero-shot | 65.70 | 77.48 | 71.56 | 49.67 | 55.00 | 73.01 | 45.54 | 40.71 | 44.44 | 37.80 | 56.09 | 58.12 |
+| **T2L (SFT) L** | 77.28 | 89.24 | 84.62 | 67.87 | 74.27 | 82.52 | 63.14 | 44.45 | 51.68 | 39.23 | **67.43** | **70.56** |
+| Run 1 (`head_lr_mult=1`) | 70.56 | 85.77 | 85.51 | 62.89 | 66.33 | 78.73 | 53.80 | 23.20 | 1.84 | 17.68 | 54.63 | 58.74 |
+
+\* Avg9 excludes humaneval, the only task with no train split.
+
+**Beating T2L means Avg(10) > 67.43.** Run 1 was at 54.63. Report the number
+whatever it is; a run that lands at 62 is a result, and so is one that lands at 55.
+
+The second number is `desc_control`'s **real minus junk**. Report it per task and
+as a mean. It is independent of whether the average beat T2L, and it is the one
+this project's claim rests on — a large average with a zero description gap is a
+different paper from a small average with a real one.
+
+### 6f. What to say about the scale
+
+The short/long split was chosen on three tasks in §6c and then applied blind to
+all ten, so it is not per-task test-set tuning — but it is also not free, and the
+writeup must say it was chosen there. If one fixed scale across all ten is within
+a point of the two-scale version, report the one-scale number instead; it is a
+much easier claim to defend.
+
+---
+
+## 7. Report back
 
 - The startup lines, including the `optimizer: base lr=… head lr=…` line.
 - The step-2,000 and step-4,000 probe separations **as soon as they exist** —
