@@ -9,7 +9,20 @@ to commit the 4.6 days.
 
 It probes `--head_lr_mult=20` and `60` to step 4,000 each (~3 h apiece), then
 either launches the full 147,500-step run at whichever won, or stops and tells
-you the premise was wrong. Training only — no benchmark eval during any of it.
+you the premise was wrong.
+
+Once it has committed, start the watcher in a second tmux window so every
+checkpoint is scored as it lands (§3b):
+
+```bash
+RUN=run3_m20 ./scripts/watch_eval.sh       # or run3_m60, whichever it chose
+```
+
+Then, at any time, from anywhere:
+
+```bash
+python -m inlet.run_status --run run3_m20
+```
 
 Setup, shell preamble and traps: `docs/RUN1.md` §2 and §3. Nothing changes there.
 
@@ -177,6 +190,44 @@ no amount of further training at these settings fixes it. Report it as such.
 
 ---
 
+## 3b. Scoring checkpoints while it trains
+
+`watch_eval.sh` polls the run directory and, for each new
+`hypermod_inlet_step*.pt`, runs `probe_prompt` and a two-task benchmark eval,
+then reprints the status table.
+
+```bash
+RUN=run3_m20 ./scripts/watch_eval.sh
+```
+
+**It runs next to the training job and does not disturb it.** Training peaked at
+14.58 GiB per rank, so a vLLM engine at `--gpu-memory-utilization 0.35` (28 GB)
+fits alongside it on an 80 GB card: 14.58 + 28 = 43. The direction of risk is
+also the safe one — training's caching allocator has already reserved what it
+needs, so an eval that cannot allocate fails *itself* and leaves training alone.
+If an eval does fail the watcher leaves that step un-done and retries it next
+round; lower `GPU_FRAC` if it keeps happening.
+
+Two tasks only — `arc_challenge` for the short-output family and `humaneval` for
+the long-output one, which is the split that matters. Adding `boolq` or
+`hellaswag` would multiply the ~15 min per checkpoint several times over.
+
+The table:
+
+```
+    step  prompt_norm  separation       arc x1     arc x0.5   humanev x1 humanev x0.5
+   1,000       0.1601      0.0800
+   4,000       0.1980      0.2200        70.90        71.08        26.22        40.85
+```
+
+with Run 1's `head_lr_mult=1` reference printed underneath, so the comparison the
+whole run is about is on screen without looking anything up.
+
+**These numbers are one description with no junk control.** They are progress,
+not results, and must not share a table with anything from `docs/RUN2.md`.
+
+---
+
 ## 4. Watch `prompt_norm`
 
 It is on the `[step N] train:` line every 100 steps.
@@ -205,8 +256,11 @@ checkpoint.
 
 ## 5. Do not
 
-- **Do not evaluate benchmarks during training.** `val_freq=4000` already costs
-  enough; benchmark eval belongs in the sweep afterwards, on chosen checkpoints.
+- **Do not evaluate at `--gpu-memory-utilization 0.7`** next to a training run.
+  That is `eval_inlet`'s default and it does not fit. `watch_eval.sh` uses 0.35;
+  see §3b.
+- **Do not put a `run_status` number in a results table.** One description, no
+  junk control — a progress signal only. The reported table is `docs/RUN2.md`.
 - **Do not add a third changed variable.** The only thing that varies between
   the two probes is `--head_lr_mult`. `--contrastive`, `--l2_reg_prompt`,
   `--prompt_diversity` and `--desc_slots=32` are candidates for the round after
