@@ -24,7 +24,8 @@ def build_jobs(checkpoint, manifest, out, repeats=2):
         encoded = json.dumps(real, indent=2) + '\n'
         if real_path.exists() and real_path.read_text() != encoded:
             raise ValueError('description inputs changed in an existing run')
-        real_path.write_text(encoded)
+        if not real_path.exists():
+            real_path.write_text(encoded)
         for rep in range(repeats if task in ('gsm8k', 'mbpp') else 1):
             for icl in (False, True):
                 base_id = f'{task}/rep{rep}/base_icl{int(icl)}'
@@ -82,13 +83,15 @@ def main():
     identity_path = out/'identity.json'
     if identity_path.exists() and json.loads(identity_path.read_text()) != identity:
         raise SystemExit('Checkpoint/manifest/code/runtime identity changed; use a new output root')
-    identity_path.write_text(json.dumps(identity, indent=2)+'\n')
+    if not identity_path.exists():
+        identity_path.write_text(json.dumps(identity, indent=2)+'\n')
     jobs = build_jobs(checkpoint, manifest, out)
     plan = out/'plan.json'
     encoded = json.dumps(jobs, indent=2) + '\n'
     if plan.exists() and plan.read_text() != encoded:
         raise SystemExit('Existing plan differs. Use a new output root.')
-    plan.write_text(encoded)
+    if not plan.exists():
+        plan.write_text(encoded)
     if a.execute:
         import torch
         config = torch.load(checkpoint, map_location='cpu', weights_only=False)['config']

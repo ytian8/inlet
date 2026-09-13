@@ -171,11 +171,42 @@ python -m inlet.run1_diagnostic --checkpoint "$RUN1_CKPT" \
 ```
 
 Use the cluster's scheduler or a persistent session so the queue outlives the
-agent turn. Prefer one allocated GPU and serial execution for a stable engine
-layout. Do not launch unrelated jobs on that GPU. The queue launches fresh
+agent turn. On the user's TWO A100s, use the launcher below: one independent evaluation
+process per GPU, no tensor parallelism or DDP. Do not launch unrelated jobs on
+these GPUs. The queue launches fresh
 processes, writes per-job process.log, and resumes only from done.json markers.
 --only-task TASK allows running one task from the same frozen plan. Preserve
 identical hardware/environment for inference repeats.
+
+### Two A100s (preferred on this cluster)
+
+After preparing adapters and passing the smoke checks, use this INSTEAD OF the
+single-GPU --execute command above:
+
+```bash
+bash scripts/run1_diagnostic_2gpu.sh --checkpoint "$RUN1_CKPT" \
+  --manifest "$DIAG_ROOT/inputs/manifest.json" --out "$DIAG_ROOT/results"
+```
+
+Activate the same venv as before; PYBIN must resolve to that venv Python. The
+launcher respects the two device IDs/UUIDs in CUDA_VISIBLE_DEVICES set by your
+scheduler; when it is unset it uses 0,1. Verify two GPUs are actually allocated.
+It first freezes the shared plan serially, then assigns:
+- first GPU: ARC-Challenge, then GSM8K, including both GSM8K repeats;
+- second GPU: WinoGrande, then MBPP, including both MBPP repeats.
+
+Both GPUs work concurrently, but each GPU runs one process at a time. All
+methods, scales and repeats for a task remain on the same GPU. A failure stops
+that worker; the other worker may finish its independent tasks. The launcher
+returns failure if either worker fails. Rerun the same launcher to resume after
+inspecting partial artifacts. Use the scheduler to cancel the entire allocation
+if needed, including child evaluator processes. Do not run the single-GPU queue
+against the same output root while the two-GPU launcher is active.
+
+The total work is unchanged (72 processes, 192 arms). Wall time may decrease,
+but startup, CPU-based code evaluation and uneven task durations prevent a
+promise of exactly 2x speedup. If the older commit already created identity.json,
+use a new results output root for this code revision; do not edit its commit hash.
 
 A failed process stops the queue. Inspect logs and partial JSON/raw files before
 retry. Move the WHOLE failed job directory into a sibling failed_attempts area

@@ -1,5 +1,8 @@
 """CPU tests: lost/doubled ICL, mutation visibility, raw capture, fixed queue."""
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace as NS
@@ -68,6 +71,43 @@ class ProtocolTests(unittest.TestCase):
                     i = job['argv'].index('--prompt-scales')
                     self.assertNotIn(',', job['argv'][i+1])
             self.assertEqual(sum(j['task']=='gsm8k' for j in jobs), 24)
+            before = {p: p.stat().st_mtime_ns for p in (root/'descriptions').glob('*.json')}
+            self.assertEqual(build_jobs('/checkpoint.pt', manifest, root), jobs)
+            self.assertEqual(before, {p: p.stat().st_mtime_ns for p in before})
+
+    def _launch_fake_gpus(self, fail_task=''):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            stub = root/'python-stub'
+            stub.write_text('#!' + sys.executable + '\n' +
+                'import os, sys, json\n'
+                'a = sys.argv\n'
+                'task = a[a.index("--only-task")+1] if "--only-task" in a else "plan"\n'
+                'with open(os.environ["TEST_LOG"], "a") as f: f.write(json.dumps([task, os.environ.get("CUDA_VISIBLE_DEVICES")])+"\\n")\n'
+                'sys.exit(3 if task == os.environ.get("FAIL_TASK") else 0)\n')
+            stub.chmod(0o755)
+            env = dict(os.environ, PYBIN=str(stub), CUDA_VISIBLE_DEVICES='GPU-A,GPU-B',
+                       TEST_LOG=str(root/'log'), FAIL_TASK=fail_task)
+            launcher = Path(__file__).resolve().parent.parent/'scripts/run1_diagnostic_2gpu.sh'
+            result = subprocess.run(['bash', str(launcher), '--checkpoint', '/unused',
+                                     '--manifest', '/unused', '--out', '/unused'],
+                                    env=env, capture_output=True, text=True)
+            rows = [json.loads(line) for line in (root/'log').read_text().splitlines()]
+            return result, rows
+
+    def test_two_gpu_assignment(self):
+        result, rows = self._launch_fake_gpus()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(rows[0], ['plan', 'GPU-A,GPU-B'])
+        self.assertEqual(dict(rows[1:]), {'arc_challenge':'GPU-A', 'gsm8k':'GPU-A',
+                                         'winogrande':'GPU-B', 'mbpp':'GPU-B'})
+
+    def test_two_gpu_worker_failure_propagates(self):
+        result, rows = self._launch_fake_gpus('winogrande')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('mbpp', dict(rows))
+        self.assertIn('gsm8k', dict(rows))
+
 
 
 if __name__ == '__main__':
