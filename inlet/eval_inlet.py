@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from inlet._env import bootstrap, output_root, user_path  # noqa: E402
 from inlet.format_ablation import MODES as FORMAT_MODES  # noqa: E402
 from inlet.format_ablation import apply_to_evaluator  # noqa: E402
+from inlet.eval_protocol import audit_icl, evaluate_recorded
 from inlet.sequence import build_eval_sequence  # noqa: E402
 
 # need_baseline=False: eval prefers the prompt-tuning baseline's own tokenizer
@@ -184,7 +185,7 @@ def completion_stats(task_result) -> dict:
 
 def make_eval_model(prompts_by_tag: dict, embed_weight,
                     format_instruction="keep", format_description=None,
-                    provenance=None):
+                    provenance=None, task=None, use_icl=False, raw_dir=None):
     """Drop-in replacement for `vllm_eval.eval_model` (same signature).
 
     `prompts_by_tag` maps a result key -> soft prompt tensor [m, d] (or a 0-row
@@ -213,10 +214,12 @@ def make_eval_model(prompts_by_tag: dict, embed_weight,
             ),
             chat_template=chat_template,
         )
+        icl_audit = audit_icl(evaluator, task, use_icl, vllm_eval.IN_CONTEXT_EXAMPLES)
         rec = apply_to_evaluator(evaluator, format_instruction,
                                  description=format_description)
         if provenance is not None:
             provenance.update(rec)
+            provenance["input_audit"] = icl_audit
         if rec["n_changed"]:
             print(f"[format-ablation] {rec['mode']}: rewrote "
                   f"{rec['n_changed']}/{rec['n_samples']} prompts", flush=True)
@@ -225,7 +228,8 @@ def make_eval_model(prompts_by_tag: dict, embed_weight,
         for tag, soft_prompt in prompts_by_tag.items():
             print(f"Evaluating soft prompt: {tag}  (m={0 if soft_prompt is None else soft_prompt.shape[0]})")
             model.set_soft_prompt(soft_prompt)
-            results[tag] = evaluator.evaluate(model)
+            raw_path = os.path.join(raw_dir, tag + ".jsonl") if raw_dir else None
+            results[tag] = evaluate_recorded(evaluator, model, raw_path)
         return results
 
     return eval_model
@@ -283,6 +287,10 @@ def parse_args():
                         "For sweeps; not comparable to a reported number.")
     p.add_argument("--skip-random-descs", action="store_true",
                    help="skip the junk-description control. For sweeps.")
+    p.add_argument("--use-icl", action="store_true",
+                   help="Use and verify upstream examples; repair dropped GSM8K prefix. Empty examples fail.")
+    p.add_argument("--save-raw", action="store_true",
+                   help="Save full rendered requests and unsanitized completions in exclusive JSONL files.")
     p.add_argument("--model-dir", default=BASE_MODEL)
     p.add_argument("--gpu-memory-utilization", type=float, default=0.7)
     # output_root(), not HERE: when baseline_prompt_tuning is importable HERE is
@@ -364,6 +372,7 @@ def main() -> None:
         prompts = {"zero_prompt": torch.zeros(0, embed_weight.shape[1], dtype=embed_weight.dtype)}
         suffix = "__zero_prompt"
         train_config = None
+        descs = {}
     else:
         from inlet.checkpoint import load_inlet_checkpoint, load_description_encoder
         hypermod, train_config = load_inlet_checkpoint(args.checkpoint, device="cuda")
@@ -424,21 +433,30 @@ def main() -> None:
     if args.format_instruction != "keep":
         suffix += f"__fmt_{args.format_instruction}"
 
+    if args.use_icl:
+        suffix += "__icl"
+
     for task in (args.tasks or [args.task]):
         stem = f"{task}{suffix}"
+        out_path = os.path.join(args.out_dir, f"{stem}.json")
+        if os.path.exists(out_path):
+            raise SystemExit(f"Refusing to overwrite {out_path}; use a fresh output directory")
+        raw_dir = os.path.join(args.out_dir, stem + "__raw") if args.save_raw else None
         fmt_rec = {}
         fmt_desc = args.format_description
         if args.format_instruction == "desc_instead_of_taskdef" and fmt_desc is None:
             # the task's own description -- the exact string the generator is fed
             fmt_desc = next(iter(_default_descs(task, 1, True).values()))
         vllm_eval.eval_model = make_eval_model(
-            prompts, embed_weight, args.format_instruction, fmt_desc, fmt_rec)
+            prompts, embed_weight, args.format_instruction, fmt_desc, fmt_rec,
+            task=task, use_icl=args.use_icl, raw_dir=raw_dir)
         results = vllm_eval.eval(
             args.model_dir,
             None,
             task,
             chat_template=tokenizer.chat_template,
             gpu_memory_utilization=args.gpu_memory_utilization,
+            use_icl=args.use_icl,
         )
         metrics = {k: v.aggregate_metrics for k, v in results.items()}
         lengths = {k: completion_stats(v) for k, v in results.items()}
@@ -471,11 +489,17 @@ def main() -> None:
                         "reported_protocol": _n_eval >= 3,
                     },
                     "train_config": train_config,
+                    "descriptions": descs,
+                    "use_icl": args.use_icl,
+                    "raw_dir": raw_dir,
+                    "sample_details": ({k: getattr(v, "sample_details", None) for k, v in results.items()}
+                                       if args.save_raw else None),
                     "format_instruction": fmt_rec,
                     "completion_lengths": lengths,
                 },
                 f,
                 indent=2,
+                default=str,
             )
             f.write("\n")
 
@@ -485,7 +509,7 @@ def main() -> None:
                 print(f"[{stem}] {_k}: completions median {_st['words_median']} words "
                       f"(mean {_st['words_mean']}), "
                       f"{100 * _st['frac_under_10_words']:.0f}% under 10 words")
-        if (args.zero_prompt and task in ZERO_SHOT
+        if (args.zero_prompt and not args.use_icl and task in ZERO_SHOT
                 and args.format_instruction == "keep"):
             got = 100 * next(iter(next(iter(metrics.values())).values()))
             want = ZERO_SHOT[task]
