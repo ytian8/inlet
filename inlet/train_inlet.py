@@ -168,6 +168,13 @@ class InletArguments(TrainingArguments):
     # Use it for smoke runs and for "give me a signal in 6 hours" runs; leave it
     # at 0 to reproduce the T2L recipe faithfully.
     max_steps: int = 0
+    # Run 2 opt-ins; existing Run 1 commands retain their previous behavior.
+    strip_taskdef_in_validation: bool = False
+    exclude_benchmark_validation: bool = False
+    input_audit_only: bool = False
+    generation_monitor_samples: int = 0
+    generation_monitor_freq: int = 4000
+    generation_monitor_max_new_tokens: int = 256
     # Multiplies the LR of everything EXCEPT `base`. The description path is
     # zero-initialized, so at T2L's lr=2.5e-5 it moves very slowly -- the
     # 12-dataset run left prompt_std_across_batch at ~1e-4 after 500 steps.
@@ -478,6 +485,9 @@ def save_checkpoint(save_dir, hypermod, args, curstep, extra=None, accelerator=N
                 "lr": args.lr,
                 "seed": args.seed,
                 "curstep": curstep,
+                "strip_taskdef_in_training": args.strip_taskdef_in_training,
+                "strip_taskdef_in_validation": args.strip_taskdef_in_validation,
+                "training_prompt_scale": 1.0,
             },
             "extra": extra or {},
         },
@@ -546,6 +556,8 @@ def effective_timeout():
 
 
 def main(args):
+    if args.generation_monitor_samples < 0 or args.generation_monitor_freq <= 0 or args.generation_monitor_max_new_tokens <= 0:
+        raise ValueError('Invalid generation monitor budget/frequency')
     args.train_ds_names = args.train_ds_names[: args.n_train_ds]
     save_dir = args.save_dir  # __main__ already appended run_name -- create_logger needs it early
     if int(os.environ.get("RANK", "0")) == 0:
@@ -683,42 +695,32 @@ def main(args):
                 f"cond={args.cond}"
             )
 
+    from inlet.aligned_protocol import BENCHMARKS, strip_definitions, write_json
+    import copy
+    if args.exclude_benchmark_validation:
+        args.eval_ds_info = {k:v for k,v in args.eval_ds_info.items() if k not in BENCHMARKS}
+        if args.generative_val_tasks.strip():
+            raise ValueError("Benchmark-free validation requires generative_val_tasks='' ")
+    if is_main:
+        save_yaml(vars(args), f"{save_dir}/args.yaml")
     train_metadata = get_metadata(args.train_ds_names, args.use_per_task_emb)
-    if args.strip_taskdef_in_training:
-        # Upstream trains on LOL_TEMPLATE = "{task_def}\n\n{problem}", and
-        # `task_def` is the whole "Definition: ..." paragraph -- a complete spec
-        # of the task, in the LM's own context, on all 479 training tasks.
-        # lol_751's says "only use subtraction", which no model infers from the
-        # word problem. Measured on a frozen Mistral over ten lol_* tasks,
-        # removing it costs 20+ rougeL (28.37 -> 4.64): that is how much of the
-        # task the text channel delivers for free, and therefore how little is
-        # left worth conditioning on. None of the ten benchmark templates carries
-        # a task spec, so at eval the prompt is the ONLY channel -- the generator
-        # is trained where it is redundant and deployed where it is load-bearing.
-        #
-        # The transformed-dataset cache is keyed on a hash of this metadata, so
-        # the two settings cannot collide on disk.
-        n_stripped = 0
-        for _ds, _md in train_metadata.items():
-            tpl = _md.get("user_prompt_template", "")
-            if "{task_def}" in tpl:
-                # Keep everything after the definition. The template is
-                # "{task_def}\n\n{problem}"; splitting on the blank line stays
-                # honest if upstream ever adds a third field.
-                _md["user_prompt_template"] = tpl.split("\n\n", 1)[1]
-                n_stripped += 1
-        if n_stripped == 0:
-            raise RuntimeError(
-                "--strip_taskdef_in_training changed 0 of "
-                f"{len(train_metadata)} training templates. None contains "
-                "'{task_def}', so this flag would silently train the unmodified "
-                "recipe and the run would look like a successful ablation."
-            )
-        if is_main:
-            logger.info("[taskdef] removed the task definition from %d/%d training "
-                        "prompts; the description is now the only channel",
-                        n_stripped, len(train_metadata))
+    original_train_metadata = copy.deepcopy(train_metadata)
     val_metadata = get_metadata(args.eval_ds_info, args.use_per_task_emb)
+    train_changed, val_changed = [], []
+    if args.strip_taskdef_in_training:
+        if args.sft_mode != 'completion' or not args.use_per_task_emb:
+            raise ValueError('Definition ablation requires completion SFT and task descriptions')
+        train_metadata, train_changed = strip_definitions(train_metadata, require_change=True)
+    if args.strip_taskdef_in_validation:
+        val_metadata, val_changed = strip_definitions(val_metadata, require_change=True)
+    if is_main:
+        write_json(os.path.join(save_dir, 'input_protocol.json'), {
+            'training_definitions_removed': train_changed,
+            'validation_definitions_removed': val_changed,
+            'benchmark_validation_excluded': args.exclude_benchmark_validation,
+            'descriptions_modified_by_code': False})
+        logger.info('[taskdef] removed from %d training and %d validation templates',
+                    len(train_changed), len(val_changed))
 
     # ---------------------------------------------------------------------
     # main_process_first is NOT a nicety here -- without it multi-GPU training
@@ -754,6 +756,7 @@ def main(args):
             emb_tokenizer=emb_tokenizer, task_desc_format_fn=task_desc_format_fn,
             pooling_fn=pooling_fn,
         )
+    dataloaders = {k:v for k,v in dataloaders.items() if v is not None}
     train_dataloader = dataloaders.pop("train")
 
     # val/generative. Built after create_dataloaders and inside the same
@@ -783,6 +786,22 @@ def main(args):
     if is_main:
         logger.info(f"train batches/epoch={len(train_dataloader)}  "
                     f"val splits={list(val_dataloaders)}")
+
+    if args.input_audit_only:
+        if is_main:
+            from inlet.aligned_protocol import export_input_audit
+            export_input_audit(save_dir, args, original_train_metadata, train_metadata,
+                               val_metadata, tokenizer, {'train':train_dataloader, **dataloaders})
+        accelerator.wait_for_everyone()
+        accelerator.end_training()
+        return
+    monitor_examples = []
+    if args.generation_monitor_samples and is_main:
+        from inlet.generation_monitor import build_monitor
+        if 'val/unseen' not in dataloaders:
+            raise ValueError('Generation monitor requires independent val/unseen tasks')
+        monitor_examples = build_monitor(dataloaders['val/unseen'], tokenizer, save_dir,
+                                         args.generation_monitor_samples)
 
     # the encoder has done its job; 1.7GB back to vLLM-free headroom
     del emb_model
@@ -1031,6 +1050,15 @@ def main(args):
             logger.info(f"[gate] m=0 reduces to plain forward ({l_none:.6f}) "
                         "-- injection point OK")
 
+    def monitor(step):
+        if is_main and monitor_examples:
+            from inlet.generation_monitor import run_monitor
+            with accelerator.autocast():
+                run_monitor(model, hypermod_eval, tokenizer, monitor_examples, save_dir,
+                            step, args.generation_monitor_max_new_tokens)
+    monitor(0)
+    accelerator.wait_for_everyone()
+
     # ---------------- train ----------------
     # DDP contract for this loop, stated once because every bug below came from
     # breaking it:
@@ -1227,6 +1255,10 @@ def main(args):
                     done = True
                     break
 
+            if args.generation_monitor_samples and (
+                    curstep % args.generation_monitor_freq == 0 or curstep == num_training_steps):
+                monitor(curstep)
+                accelerator.wait_for_everyone()
             if curstep >= num_training_steps:
                 done = True
                 break
